@@ -56,7 +56,7 @@
     messagingSenderId: "268728834735",
     appId:             "1:268728834735:web:9601eba40a8dc42d93d25a"
   };
-  const API_FOOTBALL_KEY = "SUA_API_FOOTBALL_KEY";
+  const API_FOOTBALL_KEY = "68164204178c6a5fe1dfd11fc7f19f26";
   const ADMIN_EMAIL      = "andre_vinicius_souza@hotmail.com";
 </script>
 
@@ -460,90 +460,95 @@ const db=getFirestore(app);
 const TEAMS=["Qatar","Equador","Senegal","Países Baixos","Inglaterra","Irã","EUA","País de Gales","Argentina","Arábia Saudita","México","Polônia","França","Austrália","Dinamarca","Tunísia","Espanha","Costa Rica","Alemanha","Japão","Bélgica","Canadá","Marrocos","Croácia","Brasil","Sérvia","Suíça","Camarões","Portugal","Gana","Uruguai","Coreia do Sul","Itália","Países Baixos","Escócia","Turquia","Ucrânia","Colômbia","Chile","Peru","Paraguai","Equador","Venezuela","Nova Zelândia","Panamá","Jamaica","Costa Rica"].filter((v,i,a)=>a.indexOf(v)===i).sort();
 
 const GM=[
-  // GRUPO A
+  // 11 de junho
   {id:"a1",g:"A",h:"México",hf:"🇲🇽",a:"África do Sul",af:"🇿🇦",d:"2026-06-11T16:00"},
   {id:"a2",g:"A",h:"Coreia do Sul",hf:"🇰🇷",a:"Rep. Tcheca",af:"🇨🇿",d:"2026-06-11T23:00"},
-  {id:"a3",g:"A",h:"México",hf:"🇲🇽",a:"Coreia do Sul",af:"🇰🇷",d:"2026-06-18T22:00"},
-  {id:"a4",g:"A",h:"África do Sul",hf:"🇿🇦",a:"Rep. Tcheca",af:"🇨🇿",d:"2026-06-18T13:00"},
-  {id:"a5",g:"A",h:"México",hf:"🇲🇽",a:"Rep. Tcheca",af:"🇨🇿",d:"2026-06-22T22:00"},
-  {id:"a6",g:"A",h:"África do Sul",hf:"🇿🇦",a:"Coreia do Sul",af:"🇰🇷",d:"2026-06-22T22:00"},
-  // GRUPO B
+  // 12 de junho
   {id:"b1",g:"B",h:"Canadá",hf:"🇨🇦",a:"Bósnia",af:"🇧🇦",d:"2026-06-12T16:00"},
+  {id:"d1",g:"D",h:"Estados Unidos",hf:"🇺🇸",a:"Paraguai",af:"🇵🇾",d:"2026-06-12T22:00"},
+  // 13 de junho
+  {id:"d2",g:"D",h:"Austrália",hf:"🇦🇺",a:"Turquia",af:"🇹🇷",d:"2026-06-13T01:00"},
   {id:"b2",g:"B",h:"Catar",hf:"🇶🇦",a:"Suíça",af:"🇨🇭",d:"2026-06-13T16:00"},
-  {id:"b3",g:"B",h:"Canadá",hf:"🇨🇦",a:"Catar",af:"🇶🇦",d:"2026-06-18T19:00"},
-  {id:"b4",g:"B",h:"Suíça",hf:"🇨🇭",a:"Bósnia",af:"🇧🇦",d:"2026-06-18T16:00"},
-  {id:"b5",g:"B",h:"Suíça",hf:"🇨🇭",a:"Canadá",af:"🇨🇦",d:"2026-06-24T16:00"},
-  {id:"b6",g:"B",h:"Bósnia",hf:"🇧🇦",a:"Catar",af:"🇶🇦",d:"2026-06-24T16:00"},
-  // GRUPO C
   {id:"c1",g:"C",h:"Brasil",hf:"🇧🇷",a:"Marrocos",af:"🇲🇦",d:"2026-06-13T19:00"},
   {id:"c2",g:"C",h:"Haiti",hf:"🇭🇹",a:"Escócia",af:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",d:"2026-06-13T22:00"},
-  {id:"c3",g:"C",h:"Escócia",hf:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",a:"Marrocos",af:"🇲🇦",d:"2026-06-19T19:00"},
-  {id:"c4",g:"C",h:"Brasil",hf:"🇧🇷",a:"Haiti",af:"🇭🇹",d:"2026-06-19T22:00"},
-  {id:"c5",g:"C",h:"Escócia",hf:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",a:"Brasil",af:"🇧🇷",d:"2026-06-24T19:00"},
-  {id:"c6",g:"C",h:"Marrocos",hf:"🇲🇦",a:"Haiti",af:"🇭🇹",d:"2026-06-24T19:00"},
-  // GRUPO D
-  {id:"d1",g:"D",h:"Estados Unidos",hf:"🇺🇸",a:"Paraguai",af:"🇵🇾",d:"2026-06-12T22:00"},
-  {id:"d2",g:"D",h:"Austrália",hf:"🇦🇺",a:"Turquia",af:"🇹🇷",d:"2026-06-13T01:00"},
-  {id:"d3",g:"D",h:"Turquia",hf:"🇹🇷",a:"Paraguai",af:"🇵🇾",d:"2026-06-19T01:00"},
-  {id:"d4",g:"D",h:"Estados Unidos",hf:"🇺🇸",a:"Austrália",af:"🇦🇺",d:"2026-06-19T16:00"},
-  {id:"d5",g:"D",h:"Turquia",hf:"🇹🇷",a:"Estados Unidos",af:"🇺🇸",d:"2026-06-25T23:00"},
-  {id:"d6",g:"D",h:"Paraguai",hf:"🇵🇾",a:"Austrália",af:"🇦🇺",d:"2026-06-25T23:00"},
-  // GRUPO E
+  // 14 de junho
   {id:"e1",g:"E",h:"Alemanha",hf:"🇩🇪",a:"Curaçao",af:"🇨🇼",d:"2026-06-14T14:00"},
   {id:"e2",g:"E",h:"Holanda",hf:"🇳🇱",a:"Japão",af:"🇯🇵",d:"2026-06-14T17:00"},
-  {id:"e3",g:"E",h:"Alemanha",hf:"🇩🇪",a:"Costa do Marfim",af:"🇨🇮",d:"2026-06-20T17:00"},
-  {id:"e4",g:"E",h:"Equador",hf:"🇪🇨",a:"Curaçao",af:"🇨🇼",d:"2026-06-20T21:00"},
-  {id:"e5",g:"E",h:"Equador",hf:"🇪🇨",a:"Alemanha",af:"🇩🇪",d:"2026-06-25T17:00"},
-  {id:"e6",g:"E",h:"Curaçao",hf:"🇨🇼",a:"Costa do Marfim",af:"🇨🇮",d:"2026-06-25T17:00"},
-  // GRUPO F
-  {id:"f1",g:"F",h:"Holanda",hf:"🇳🇱",a:"Ucrânia",af:"🇺🇦",d:"2026-06-20T14:00"},
-  {id:"f2",g:"F",h:"Tunísia",hf:"🇹🇳",a:"Japão",af:"🇯🇵",d:"2026-06-21T01:00"},
-  {id:"f3",g:"F",h:"Japão",hf:"🇯🇵",a:"Ucrânia",af:"🇺🇦",d:"2026-06-25T20:00"},
-  {id:"f4",g:"F",h:"Tunísia",hf:"🇹🇳",a:"Holanda",af:"🇳🇱",d:"2026-06-25T20:00"},
+  {id:"e3",g:"E",h:"Costa do Marfim",hf:"🇨🇮",a:"Equador",af:"🇪🇨",d:"2026-06-14T20:00"},
   {id:"f5",g:"F",h:"Ucrânia",hf:"🇺🇦",a:"Tunísia",af:"🇹🇳",d:"2026-06-14T23:00"},
-  {id:"f6",g:"F",h:"Japão",hf:"🇯🇵",a:"Holanda",af:"🇳🇱",d:"2026-06-25T20:00"},
-  // GRUPO G
-  {id:"g1",g:"G",h:"Bélgica",hf:"🇧🇪",a:"Egito",af:"🇪🇬",d:"2026-06-15T16:00"},
-  {id:"g2",g:"G",h:"Irã",hf:"🇮🇷",a:"Nova Zelândia",af:"🇳🇿",d:"2026-06-15T22:00"},
-  {id:"g3",g:"G",h:"Bélgica",hf:"🇧🇪",a:"Irã",af:"🇮🇷",d:"2026-06-21T16:00"},
-  {id:"g4",g:"G",h:"Nova Zelândia",hf:"🇳🇿",a:"Egito",af:"🇪🇬",d:"2026-06-21T22:00"},
-  {id:"g5",g:"G",h:"Nova Zelândia",hf:"🇳🇿",a:"Bélgica",af:"🇧🇪",d:"2026-06-27T00:00"},
-  {id:"g6",g:"G",h:"Egito",hf:"🇪🇬",a:"Irã",af:"🇮🇷",d:"2026-06-27T00:00"},
-  // GRUPO H
+  // 15 de junho
   {id:"h1",g:"H",h:"Espanha",hf:"🇪🇸",a:"Cabo Verde",af:"🇨🇻",d:"2026-06-15T13:00"},
+  {id:"g1",g:"G",h:"Bélgica",hf:"🇧🇪",a:"Egito",af:"🇪🇬",d:"2026-06-15T16:00"},
   {id:"h2",g:"H",h:"Arábia Saudita",hf:"🇸🇦",a:"Uruguai",af:"🇺🇾",d:"2026-06-15T19:00"},
-  {id:"h3",g:"H",h:"Espanha",hf:"🇪🇸",a:"Arábia Saudita",af:"🇸🇦",d:"2026-06-21T13:00"},
-  {id:"h4",g:"H",h:"Uruguai",hf:"🇺🇾",a:"Cabo Verde",af:"🇨🇻",d:"2026-06-21T19:00"},
-  {id:"h5",g:"H",h:"Uruguai",hf:"🇺🇾",a:"Espanha",af:"🇪🇸",d:"2026-06-26T21:00"},
-  {id:"h6",g:"H",h:"Cabo Verde",hf:"🇨🇻",a:"Arábia Saudita",af:"🇸🇦",d:"2026-06-26T21:00"},
-  // GRUPO I
+  {id:"g2",g:"G",h:"Irã",hf:"🇮🇷",a:"Nova Zelândia",af:"🇳🇿",d:"2026-06-15T22:00"},
+  // 16 de junho
   {id:"i1",g:"I",h:"França",hf:"🇫🇷",a:"Senegal",af:"🇸🇳",d:"2026-06-16T16:00"},
   {id:"i2",g:"I",h:"Iraque",hf:"🇮🇶",a:"Noruega",af:"🇳🇴",d:"2026-06-16T19:00"},
-  {id:"i3",g:"I",h:"França",hf:"🇫🇷",a:"Iraque",af:"🇮🇶",d:"2026-06-22T18:00"},
-  {id:"i4",g:"I",h:"Noruega",hf:"🇳🇴",a:"Senegal",af:"🇸🇳",d:"2026-06-22T21:00"},
-  {id:"i5",g:"I",h:"Noruega",hf:"🇳🇴",a:"França",af:"🇫🇷",d:"2026-06-26T16:00"},
-  {id:"i6",g:"I",h:"Senegal",hf:"🇸🇳",a:"Iraque",af:"🇮🇶",d:"2026-06-26T16:00"},
-  // GRUPO J
   {id:"j1",g:"J",h:"Argentina",hf:"🇦🇷",a:"Argélia",af:"🇩🇿",d:"2026-06-16T14:00"},
+  // 17 de junho
   {id:"j2",g:"J",h:"Áustria",hf:"🇦🇹",a:"Jordânia",af:"🇯🇴",d:"2026-06-17T01:00"},
-  {id:"j3",g:"J",h:"Argentina",hf:"🇦🇷",a:"Áustria",af:"🇦🇹",d:"2026-06-22T14:00"},
-  {id:"j4",g:"J",h:"Jordânia",hf:"🇯🇴",a:"Argélia",af:"🇩🇿",d:"2026-06-23T00:00"},
-  {id:"j5",g:"J",h:"Jordânia",hf:"🇯🇴",a:"Argentina",af:"🇦🇷",d:"2026-06-27T23:00"},
-  {id:"j6",g:"J",h:"Argélia",hf:"🇩🇿",a:"Áustria",af:"🇦🇹",d:"2026-06-27T23:00"},
-  // GRUPO K
   {id:"k1",g:"K",h:"Portugal",hf:"🇵🇹",a:"Jamaica",af:"🇯🇲",d:"2026-06-17T14:00"},
-  {id:"k2",g:"K",h:"Uzbequistão",hf:"🇺🇿",a:"Colômbia",af:"🇨🇴",d:"2026-06-17T23:00"},
-  {id:"k3",g:"K",h:"Portugal",hf:"🇵🇹",a:"Uzbequistão",af:"🇺🇿",d:"2026-06-23T14:00"},
-  {id:"k4",g:"K",h:"Colômbia",hf:"🇨🇴",a:"Jamaica",af:"🇯🇲",d:"2026-06-23T23:00"},
-  {id:"k5",g:"K",h:"Colômbia",hf:"🇨🇴",a:"Portugal",af:"🇵🇹",d:"2026-06-27T20:30"},
-  {id:"k6",g:"K",h:"Jamaica",hf:"🇯🇲",a:"Uzbequistão",af:"🇺🇿",d:"2026-06-27T20:30"},
-  // GRUPO L
   {id:"l1",g:"L",h:"Inglaterra",hf:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",a:"Croácia",af:"🇭🇷",d:"2026-06-17T17:00"},
   {id:"l2",g:"L",h:"Gana",hf:"🇬🇭",a:"Panamá",af:"🇵🇦",d:"2026-06-17T20:00"},
+  {id:"k2",g:"K",h:"Uzbequistão",hf:"🇺🇿",a:"Colômbia",af:"🇨🇴",d:"2026-06-17T23:00"},
+  // 18 de junho
+  {id:"a3",g:"A",h:"África do Sul",hf:"🇿🇦",a:"Rep. Tcheca",af:"🇨🇿",d:"2026-06-18T13:00"},
+  {id:"b3",g:"B",h:"Suíça",hf:"🇨🇭",a:"Bósnia",af:"🇧🇦",d:"2026-06-18T16:00"},
+  {id:"b4",g:"B",h:"Canadá",hf:"🇨🇦",a:"Catar",af:"🇶🇦",d:"2026-06-18T19:00"},
+  {id:"a4",g:"A",h:"México",hf:"🇲🇽",a:"Coreia do Sul",af:"🇰🇷",d:"2026-06-18T22:00"},
+  // 19 de junho
+  {id:"d3",g:"D",h:"Turquia",hf:"🇹🇷",a:"Paraguai",af:"🇵🇾",d:"2026-06-19T01:00"},
+  {id:"d4",g:"D",h:"Estados Unidos",hf:"🇺🇸",a:"Austrália",af:"🇦🇺",d:"2026-06-19T16:00"},
+  {id:"c3",g:"C",h:"Escócia",hf:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",a:"Marrocos",af:"🇲🇦",d:"2026-06-19T19:00"},
+  {id:"c4",g:"C",h:"Brasil",hf:"🇧🇷",a:"Haiti",af:"🇭🇹",d:"2026-06-19T22:00"},
+  // 20 de junho
+  {id:"f1",g:"F",h:"Holanda",hf:"🇳🇱",a:"Ucrânia",af:"🇺🇦",d:"2026-06-20T14:00"},
+  {id:"e4",g:"E",h:"Alemanha",hf:"🇩🇪",a:"Costa do Marfim",af:"🇨🇮",d:"2026-06-20T17:00"},
+  {id:"e5",g:"E",h:"Equador",hf:"🇪🇨",a:"Curaçao",af:"🇨🇼",d:"2026-06-20T21:00"},
+  // 21 de junho
+  {id:"f2",g:"F",h:"Tunísia",hf:"🇹🇳",a:"Japão",af:"🇯🇵",d:"2026-06-21T01:00"},
+  {id:"h3",g:"H",h:"Espanha",hf:"🇪🇸",a:"Arábia Saudita",af:"🇸🇦",d:"2026-06-21T13:00"},
+  {id:"g3",g:"G",h:"Bélgica",hf:"🇧🇪",a:"Irã",af:"🇮🇷",d:"2026-06-21T16:00"},
+  {id:"h4",g:"H",h:"Uruguai",hf:"🇺🇾",a:"Cabo Verde",af:"🇨🇻",d:"2026-06-21T19:00"},
+  {id:"g4",g:"G",h:"Nova Zelândia",hf:"🇳🇿",a:"Egito",af:"🇪🇬",d:"2026-06-21T22:00"},
+  // 22 de junho
+  {id:"j3",g:"J",h:"Argentina",hf:"🇦🇷",a:"Áustria",af:"🇦🇹",d:"2026-06-22T14:00"},
+  {id:"i3",g:"I",h:"França",hf:"🇫🇷",a:"Iraque",af:"🇮🇶",d:"2026-06-22T18:00"},
+  {id:"i4",g:"I",h:"Noruega",hf:"🇳🇴",a:"Senegal",af:"🇸🇳",d:"2026-06-22T21:00"},
+  // 23 de junho
+  {id:"j4",g:"J",h:"Jordânia",hf:"🇯🇴",a:"Argélia",af:"🇩🇿",d:"2026-06-23T00:00"},
+  {id:"k3",g:"K",h:"Portugal",hf:"🇵🇹",a:"Uzbequistão",af:"🇺🇿",d:"2026-06-23T14:00"},
   {id:"l3",g:"L",h:"Inglaterra",hf:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",a:"Gana",af:"🇬🇭",d:"2026-06-23T17:00"},
   {id:"l4",g:"L",h:"Panamá",hf:"🇵🇦",a:"Croácia",af:"🇭🇷",d:"2026-06-23T20:00"},
+  {id:"k4",g:"K",h:"Colômbia",hf:"🇨🇴",a:"Jamaica",af:"🇯🇲",d:"2026-06-23T23:00"},
+  // 24 de junho
+  {id:"b5",g:"B",h:"Suíça",hf:"🇨🇭",a:"Canadá",af:"🇨🇦",d:"2026-06-24T16:00"},
+  {id:"b6",g:"B",h:"Bósnia",hf:"🇧🇦",a:"Catar",af:"🇶🇦",d:"2026-06-24T16:00"},
+  {id:"c5",g:"C",h:"Escócia",hf:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",a:"Brasil",af:"🇧🇷",d:"2026-06-24T19:00"},
+  {id:"c6",g:"C",h:"Marrocos",hf:"🇲🇦",a:"Haiti",af:"🇭🇹",d:"2026-06-24T19:00"},
+  {id:"a5",g:"A",h:"México",hf:"🇲🇽",a:"Rep. Tcheca",af:"🇨🇿",d:"2026-06-24T22:00"},
+  {id:"a6",g:"A",h:"África do Sul",hf:"🇿🇦",a:"Coreia do Sul",af:"🇰🇷",d:"2026-06-24T22:00"},
+  // 25 de junho
+  {id:"e6",g:"E",h:"Equador",hf:"🇪🇨",a:"Alemanha",af:"🇩🇪",d:"2026-06-25T17:00"},
+  {id:"e7",g:"E",h:"Curaçao",hf:"🇨🇼",a:"Costa do Marfim",af:"🇨🇮",d:"2026-06-25T17:00"},
+  {id:"f3",g:"F",h:"Japão",hf:"🇯🇵",a:"Ucrânia",af:"🇺🇦",d:"2026-06-25T20:00"},
+  {id:"f4",g:"F",h:"Tunísia",hf:"🇹🇳",a:"Holanda",af:"🇳🇱",d:"2026-06-25T20:00"},
+  {id:"d5",g:"D",h:"Turquia",hf:"🇹🇷",a:"Estados Unidos",af:"🇺🇸",d:"2026-06-25T23:00"},
+  {id:"d6",g:"D",h:"Paraguai",hf:"🇵🇾",a:"Austrália",af:"🇦🇺",d:"2026-06-25T23:00"},
+  // 26 de junho
+  {id:"i5",g:"I",h:"Noruega",hf:"🇳🇴",a:"França",af:"🇫🇷",d:"2026-06-26T16:00"},
+  {id:"i6",g:"I",h:"Senegal",hf:"🇸🇳",a:"Iraque",af:"🇮🇶",d:"2026-06-26T16:00"},
+  {id:"h5",g:"H",h:"Uruguai",hf:"🇺🇾",a:"Espanha",af:"🇪🇸",d:"2026-06-26T21:00"},
+  {id:"h6",g:"H",h:"Cabo Verde",hf:"🇨🇻",a:"Arábia Saudita",af:"🇸🇦",d:"2026-06-26T21:00"},
+  // 27 de junho
+  {id:"g5",g:"G",h:"Nova Zelândia",hf:"🇳🇿",a:"Bélgica",af:"🇧🇪",d:"2026-06-27T00:00"},
+  {id:"g6",g:"G",h:"Egito",hf:"🇪🇬",a:"Irã",af:"🇮🇷",d:"2026-06-27T00:00"},
   {id:"l5",g:"L",h:"Panamá",hf:"🇵🇦",a:"Inglaterra",af:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",d:"2026-06-27T18:00"},
   {id:"l6",g:"L",h:"Croácia",hf:"🇭🇷",a:"Gana",af:"🇬🇭",d:"2026-06-27T18:00"},
+  {id:"k5",g:"K",h:"Colômbia",hf:"🇨🇴",a:"Portugal",af:"🇵🇹",d:"2026-06-27T20:30"},
+  {id:"k6",g:"K",h:"Jamaica",hf:"🇯🇲",a:"Uzbequistão",af:"🇺🇿",d:"2026-06-27T20:30"},
+  {id:"j5",g:"J",h:"Jordânia",hf:"🇯🇴",a:"Argentina",af:"🇦🇷",d:"2026-06-27T23:00"},
+  {id:"j6",g:"J",h:"Argélia",hf:"🇩🇿",a:"Áustria",af:"🇦🇹",d:"2026-06-27T23:00"},
 ];
 
 const KO=[
@@ -702,11 +707,13 @@ async function renderGames(){
   await loadRes();
   const psn=await getDocs(collection(db,`palpites/${CUR.uid}/matches`));
   const myP={};psn.forEach(d=>{myP[d.id]=d.data()});
-  const groups=[...new Set(GM.map(m=>m.g))];
-  let html="";
-  for(const g of groups){
-    html+=`<div class="glabel">⚽ Grupo ${g}</div>`;
-    for(const m of GM.filter(x=>x.g===g))html+=mRow(m,myP[m.id],RES[m.id],false);
+  const sorted=[...GM].sort((a,b)=>new Date(a.d)-new Date(b.d));
+  let html="",lastDay="";
+  for(const m of sorted){
+    const day=new Date(m.d).toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"});
+    const dayFmt=day.charAt(0).toUpperCase()+day.slice(1);
+    if(dayFmt!==lastDay){html+=`<div class="glabel">📅 ${dayFmt}</div>`;lastDay=dayFmt;}
+    html+=mRow(m,myP[m.id],RES[m.id],false);
   }
   $("g-groups").innerHTML=html;
   let khtml="";
