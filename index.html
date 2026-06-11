@@ -1081,7 +1081,9 @@ window.recalcAll=async()=>{
       }
       const total=pg+pk+ps;
       console.log(`User ${u.name}: pg=${pg} pk=${pk} ps=${ps} total=${total}`);
+      console.log(`Salvando ${u.name} uid=${u.uid} total=${total}`);
       await setDoc(doc(db,"users",u.uid),{pts:total,ptsGroups:pg,ptsKnockout:pk,ptsSpecial:ps},{merge:true});
+      console.log(`Salvo com sucesso: ${u.name}`);
       USERS[u.uid]={...u,pts:total,ptsGroups:pg,ptsKnockout:pk,ptsSpecial:ps};
     }
     RES={...freshRes};
