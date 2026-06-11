@@ -287,6 +287,7 @@ main{flex:1;max-width:1100px;width:100%;margin:0 auto;padding:28px 20px}
     <button class="ni active" data-page="home">🏠 Início</button>
     <button class="ni" data-page="games">⚽ Jogos</button>
     <button class="ni" data-page="special">🌟 Especial</button>
+    <button class="ni" data-page="mypalpites">📝 Meus Palpites</button>
     <button class="ni" data-page="ranking">📊 Ranking</button>
     <button class="ni" data-page="report">📋 Relatório</button>
     <button class="ni" data-page="rules">📖 Regras</button>
@@ -344,6 +345,22 @@ main{flex:1;max-width:1100px;width:100%;margin:0 auto;padding:28px 20px}
     </div>
 
     <!-- RANKING -->
+    <!-- MEUS PALPITES -->
+    <div class="page" id="page-mypalpites">
+      <div class="card">
+        <div class="ctitle">📝 Meus Palpites — Fase de Grupos</div>
+        <div id="myp-groups"></div>
+      </div>
+      <div class="card">
+        <div class="ctitle">🏆 Meus Palpites — Mata-Mata</div>
+        <div id="myp-knockout"></div>
+      </div>
+      <div class="card">
+        <div class="ctitle">🌟 Meus Palpites — Especiais</div>
+        <div id="myp-specials"></div>
+      </div>
+    </div>
+
     <div class="page" id="page-ranking">
       <div class="card">
         <div class="ctitle">📊 Ranking Geral</div>
@@ -637,7 +654,7 @@ document.getElementById("main-nav").addEventListener("click",e=>{
   const pg=b.dataset.page;
   document.querySelectorAll(".ni").forEach(x=>x.classList.remove("active"));b.classList.add("active");
   document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));$("page-"+pg).classList.add("active");
-  ({home:renderHome,games:renderGames,special:renderSpecial,ranking:renderRanking,report:initReport,rules:renderRules,admin:renderAdmin})[pg]?.();
+  ({home:renderHome,games:renderGames,special:renderSpecial,mypalpites:renderMyPalpites,ranking:renderRanking,report:initReport,rules:renderRules,admin:renderAdmin})[pg]?.();
 });
 
 /* ─── INIT ─── */
@@ -774,6 +791,98 @@ window.saveSpecial=async(type)=>{
 };
 
 /* ─── RANKING ─── */
+async function renderMyPalpites(){
+  await loadRes();
+  const palSnap=await getDocs(collection(db,`palpites/${CUR.uid}/matches`));
+  const myP={};palSnap.forEach(d=>{myP[d.id]=d.data()});
+
+  // GRUPOS - ordenado por data
+  const sorted=[...GM].sort((a,b)=>new Date(a.d)-new Date(b.d));
+  let html="",lastDay="";
+  let totalPts=0,acertos=0,parciais=0,erros=0,semPalpite=0;
+  for(const m of sorted){
+    const pal=myP[m.id], res=RES[m.id];
+    const day=new Date(m.d).toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"});
+    const dayFmt=day.charAt(0).toUpperCase()+day.slice(1);
+    if(dayFmt!==lastDay){html+=`<div class="glabel">📅 ${dayFmt}</div>`;lastDay=dayFmt;}
+    const pts=calcPts(pal,res,false);
+    totalPts+=pts;
+    let badge="";
+    if(res&&pal){
+      if(pts>=10){badge=`<span class="ptag pexact">+${pts} pts ⭐</span>`;acertos++;}
+      else if(pts>0){badge=`<span class="ptag ppart">+${pts} pts</span>`;parciais++;}
+      else{badge=`<span class="ptag pmiss">0 pts</span>`;erros++;}
+    } else if(!pal){
+      badge=`<span style="font-size:.72rem;color:var(--muted)">${res?"sem palpite":"aguardando"}</span>`;
+      if(res)semPalpite++;
+    }
+    const palStr=pal?`<span style="font-family:'Russo One',sans-serif;font-size:1.1rem;color:var(--green)">${pal.hs} × ${pal.as}</span>`:`<span style="color:var(--muted);font-size:.85rem">—</span>`;
+    const resStr=res?`<span style="font-family:'Russo One',sans-serif;font-size:1.1rem;color:var(--gold)">${res.hs} × ${res.as}</span>`:`<span style="color:var(--muted);font-size:.8rem">não iniciado</span>`;
+    html+=`<div class="mrow ${res?"done":""}">
+      <div class="mmeta"><b>Gr.${m.g}</b>${new Date(m.d).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</div>
+      <div class="mteams"><span class="fl">${m.hf}</span><span>${m.h}</span><span class="vs">vs</span><span>${m.a}</span><span class="fl">${m.af}</span></div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="text-align:center"><div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Meu palpite</div>${palStr}</div>
+        <div style="text-align:center"><div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Resultado</div>${resStr}</div>
+        ${badge}
+      </div>
+    </div>`;
+  }
+  $("myp-groups").innerHTML=`
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+      <div class="sbox" style="padding:12px 16px;min-width:100px"><div class="val" style="font-size:1.5rem">${totalPts}</div><div class="lbl">Pontos</div></div>
+      <div class="sbox" style="padding:12px 16px;min-width:100px"><div class="val" style="font-size:1.5rem;color:var(--green)">${acertos}</div><div class="lbl">Exatos</div></div>
+      <div class="sbox" style="padding:12px 16px;min-width:100px"><div class="val" style="font-size:1.5rem;color:var(--blue)">${parciais}</div><div class="lbl">Parciais</div></div>
+      <div class="sbox" style="padding:12px 16px;min-width:100px"><div class="val" style="font-size:1.5rem;color:var(--red)">${erros}</div><div class="lbl">Erros</div></div>
+    </div>${html}`;
+
+  // MATA-MATA
+  let khtml="";
+  for(const rnd of KO){
+    let hasAny=false;
+    for(const m of rnd.matches){
+      const pal=myP[m.id],res=RES[m.id];
+      if(!res&&!pal)continue;
+      if(!hasAny){khtml+=`<div class="glabel">🏆 ${rnd.round}</div>`;hasAny=true;}
+      const pts=calcPts(pal,res,true);
+      let badge="";
+      if(res&&pal){if(pts>=20)badge=`<span class="ptag pexact">+${pts} pts ⭐</span>`;else if(pts>0)badge=`<span class="ptag ppart">+${pts} pts</span>`;else badge=`<span class="ptag pmiss">0 pts</span>`;}
+      const palStr=pal?`<span style="font-family:'Russo One',sans-serif;font-size:1.1rem;color:var(--green)">${pal.hs} × ${pal.as}</span>`:`<span style="color:var(--muted);font-size:.85rem">sem palpite</span>`;
+      const resStr=res?`<span style="font-family:'Russo One',sans-serif;font-size:1.1rem;color:var(--gold)">${res.hs} × ${res.as}</span>`:`<span style="color:var(--muted);font-size:.8rem">não iniciado</span>`;
+      const lb=res?`${res.h||m.lb.split(" vs ")[0]} vs ${res.a||m.lb.split(" vs ")[1]}`:m.lb;
+      khtml+=`<div class="mrow ${res?"done":""}">
+        <div class="mmeta"><b>${rnd.round}</b></div>
+        <div class="mteams" style="font-size:.85rem">${lb}</div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="text-align:center"><div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Meu palpite</div>${palStr}</div>
+          <div style="text-align:center"><div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Resultado</div>${resStr}</div>
+          ${badge}
+        </div>
+      </div>`;
+    }
+  }
+  $("myp-knockout").innerHTML=khtml||`<div class="empty"><div class="ico">⏳</div><div>Seus palpites do mata-mata aparecerão aqui.</div></div>`;
+
+  // ESPECIAIS
+  const spSn=await getDoc(doc(db,"specials",CUR.uid));
+  const sp=spSn.exists()?spSn.data():{};
+  const cfgSn=await getDoc(doc(db,"config","specials_result"));
+  const cfg=cfgSn.exists()?cfgSn.data():{};
+  $("myp-specials").innerHTML=`
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
+      <div class="sbox" style="padding:16px 20px;min-width:160px">
+        <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🏆 Campeão</div>
+        <div style="font-weight:600;font-size:1rem">${sp.champion||"Não definido"}</div>
+        ${cfg.champion?`<div style="font-size:.75rem;margin-top:4px">${sp.champion===cfg.champion?'<span class="ptag pexact">+30 pts ⭐</span>':'<span class="ptag pmiss">0 pts</span>'}</div>`:""}
+      </div>
+      <div class="sbox" style="padding:16px 20px;min-width:160px">
+        <div style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">👟 Artilheiro</div>
+        <div style="font-weight:600;font-size:1rem">${sp.scorer||"Não definido"}</div>
+        ${cfg.scorer?`<div style="font-size:.75rem;margin-top:4px">${sp.scorer?.toLowerCase()===cfg.scorer?.toLowerCase()?'<span class="ptag pexact">+15 pts ⭐</span>':'<span class="ptag pmiss">0 pts</span>'}</div>`:""}
+      </div>
+    </div>`;
+}
+
 function renderRanking(){
   const rk=ranking();
   const tb=document.querySelector("#rank-table tbody");
