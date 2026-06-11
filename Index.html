@@ -1044,43 +1044,54 @@ window.setRes=async(mid,isKO)=>{
 window.delRes=async(mid)=>{await deleteDoc(doc(db,"results",mid));delete RES[mid];toast("Removido.","inf");aResPhase(_aResPhase)};
 window.recalcAll=async()=>{
   toast("Recalculando...","inf");
-  // Recarregar resultados frescos do Firestore
-  const resSn=await getDocs(collection(db,"results"));
-  const freshRes={};
-  resSn.forEach(d=>{freshRes[d.id]=d.data()});
-  // Recarregar users frescos
-  const usersSn=await getDocs(collection(db,"users"));
-  const freshUsers={};
-  usersSn.forEach(d=>{freshUsers[d.id]=d.data()});
+  try{
+    // Recarregar resultados frescos do Firestore
+    const resSn=await getDocs(collection(db,"results"));
+    const freshRes={};
+    resSn.forEach(d=>{freshRes[d.id]=d.data()});
+    console.log("Resultados encontrados:",Object.keys(freshRes).length, Object.keys(freshRes));
 
-  const batch=writeBatch(db);
-  for(const u of Object.values(freshUsers)){
-    const psn=await getDocs(collection(db,`palpites/${u.uid}/matches`));
-    let pg=0,pk=0,ps=0;
-    psn.forEach(d=>{
-      const p=d.data(),r=freshRes[d.id];
-      if(!r)return;
-      // normaliza campos legado
-      const pn={hs:p.hs??p.home_score, as:p.as??p.away_score, isKO:p.isKO};
-      const rn={hs:r.hs??r.home_score, as:r.as??r.away_score};
-      const pts=calcPts(pn,rn,pn.isKO);
-      if(pn.isKO)pk+=pts;else pg+=pts;
-    });
-    const spSn=await getDoc(doc(db,"specials",u.uid));
-    const cfgSn=await getDoc(doc(db,"config","specials_result"));
-    if(spSn.exists()&&cfgSn.exists()){
-      const sp=spSn.data(),cfg=cfgSn.data();
-      if(cfg.champion&&sp.champion===cfg.champion)ps+=30;
-      if(cfg.scorer&&sp.scorer?.toLowerCase()===cfg.scorer?.toLowerCase())ps+=15;
+    // Recarregar users frescos
+    const usersSn=await getDocs(collection(db,"users"));
+    const freshUsers={};
+    usersSn.forEach(d=>{freshUsers[d.id]=d.data()});
+    console.log("Users encontrados:",Object.keys(freshUsers).length);
+
+    const batch=writeBatch(db);
+    for(const u of Object.values(freshUsers)){
+      const psn=await getDocs(collection(db,`palpites/${u.uid}/matches`));
+      let pg=0,pk=0,ps=0;
+      console.log(`User ${u.name}: ${psn.size} palpites`);
+      psn.forEach(d=>{
+        const p=d.data(),r=freshRes[d.id];
+        const pn={hs:p.hs??p.home_score, as:p.as??p.away_score, isKO:p.isKO};
+        const rn=r?{hs:r.hs??r.home_score, as:r.as??r.away_score}:null;
+        console.log(`  jogo ${d.id}: palpite=${JSON.stringify(pn)}, resultado=${JSON.stringify(rn)}`);
+        if(!rn){console.log(`  -> sem resultado`);return;}
+        const pts=calcPts(pn,rn,pn.isKO);
+        console.log(`  -> pts=${pts}`);
+        if(pn.isKO)pk+=pts;else pg+=pts;
+      });
+      const spSn=await getDoc(doc(db,"specials",u.uid));
+      const cfgSn=await getDoc(doc(db,"config","specials_result"));
+      if(spSn.exists()&&cfgSn.exists()){
+        const sp=spSn.data(),cfg=cfgSn.data();
+        if(cfg.champion&&sp.champion===cfg.champion)ps+=30;
+        if(cfg.scorer&&sp.scorer?.toLowerCase()===cfg.scorer?.toLowerCase())ps+=15;
+      }
+      const total=pg+pk+ps;
+      console.log(`User ${u.name}: pg=${pg} pk=${pk} ps=${ps} total=${total}`);
+      batch.update(doc(db,"users",u.uid),{pts:total,ptsGroups:pg,ptsKnockout:pk,ptsSpecial:ps});
+      USERS[u.uid]={...u,pts:total,ptsGroups:pg,ptsKnockout:pk,ptsSpecial:ps};
     }
-    const total=pg+pk+ps;
-    batch.update(doc(db,"users",u.uid),{pts:total,ptsGroups:pg,ptsKnockout:pk,ptsSpecial:ps});
-    USERS[u.uid]={...u,pts:total,ptsGroups:pg,ptsKnockout:pk,ptsSpecial:ps};
     RES={...freshRes};
+    await batch.commit();
+    toast("Pontos recalculados! 🔢","ok");
+    renderRanking();
+  }catch(e){
+    console.error("Erro recalcAll:",e);
+    toast("Erro: "+e.message,"err");
   }
-  await batch.commit();
-  toast("Pontos recalculados! 🔢","ok");
-  renderRanking();
 };
 async function renderPart(){
   const rk=ranking();
