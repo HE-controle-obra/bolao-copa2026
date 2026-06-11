@@ -670,7 +670,11 @@ function subscribeUsers(){if(_unsub)_unsub();_unsub=onSnapshot(collection(db,"us
 /* ─── PONTUAÇÃO ─── */
 function calcPts(pal,res,isKO){
   if(!pal||!res)return 0;
-  const m=isKO?2:1,ph=pal.hs,pa=pal.as,rh=res.hs,ra=res.as;
+  // suporta hs/as (novo) e home_score/away_score (legado)
+  const ph=pal.hs??pal.home_score, pa=pal.as??pal.away_score;
+  const rh=res.hs??res.home_score, ra=res.as??res.away_score;
+  if(ph===undefined||pa===undefined||rh===undefined||ra===undefined)return 0;
+  const m=isKO?2:1;
   if(ph===rh&&pa===ra)return 10*m;
   if(Math.sign(ph-pa)===Math.sign(rh-ra)&&(ph-pa)===(rh-ra))return 7*m;
   if(Math.sign(ph-pa)===Math.sign(rh-ra))return 5*m;
@@ -724,6 +728,23 @@ async function renderGames(){
   await loadRes();
   const psn=await getDocs(collection(db,`palpites/${CUR.uid}/matches`));
   const myP={};psn.forEach(d=>{myP[d.id]=d.data()});
+
+  // Buscar palpites de todos os users para jogos bloqueados
+  const allPal={}; // allPal[mid] = [{name, hs, as}, ...]
+  const lockedIds=GM.filter(m=>isLocked(m.d)).map(m=>m.id);
+  if(lockedIds.length>0){
+    for(const u of Object.values(USERS)){
+      if(u.uid===CUR.uid)continue;
+      const uSnap=await getDocs(collection(db,`palpites/${u.uid}/matches`));
+      uSnap.forEach(d=>{
+        if(lockedIds.includes(d.id)){
+          if(!allPal[d.id])allPal[d.id]=[];
+          allPal[d.id].push({name:u.name,hs:d.data().hs,as:d.data().as});
+        }
+      });
+    }
+  }
+
   const sorted=[...GM].sort((a,b)=>new Date(a.d)-new Date(b.d));
   let html="",lastDay="";
   for(const m of sorted){
@@ -731,6 +752,22 @@ async function renderGames(){
     const dayFmt=day.charAt(0).toUpperCase()+day.slice(1);
     if(dayFmt!==lastDay){html+=`<div class="glabel">📅 ${dayFmt}</div>`;lastDay=dayFmt;}
     html+=mRow(m,myP[m.id],RES[m.id],false);
+    // Se bloqueado, mostrar palpites dos outros
+    if(isLocked(m.d)&&(allPal[m.id]?.length||myP[m.id])){
+      const outros=allPal[m.id]||[];
+      const todos=myP[m.id]?[{name:"Você",hs:myP[m.id].hs,as:myP[m.id].as,me:true},...outros]:outros;
+      if(todos.length>0){
+        html+=`<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;margin:-4px 0 10px;padding:10px 16px;">
+          <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px">🔒 Palpites registrados</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            ${todos.map(p=>`<div style="background:var(--bg2);border:1px solid ${p.me?'var(--green)':'var(--border)'};border-radius:7px;padding:6px 12px;font-size:.82rem;">
+              <span style="color:${p.me?'var(--green)':'var(--muted)'};">${p.name}</span>
+              <span style="font-family:'Russo One',sans-serif;color:var(--text);margin-left:8px">${p.hs} × ${p.as}</span>
+            </div>`).join('')}
+          </div>
+        </div>`;
+      }
+    }
   }
   $("g-groups").innerHTML=html;
   let khtml="";
@@ -752,7 +789,7 @@ function mRow(m,pal,res,isKO){
   const pts=calcPts(pal,res,isKO);
   const ptTag=res&&pal?(pts>=(isKO?20:10)?`<span class="ptag pexact">+${pts} pts ⭐</span>`:pts>0?`<span class="ptag ppart">+${pts} pts</span>`:`<span class="ptag pmiss">0 pts</span>`):(res&&!pal?`<span style="font-size:.72rem;color:var(--muted)">sem palpite</span>`:"");
   const sc=lk
-    ?`<div class="rdisp">${res?res.hs+" × "+res.as:"? × ?"}</div>${ptTag}`
+    ?`<div class="rdisp">${res?(res.hs??res.home_score)+" × "+(res.as??res.away_score):"? × ?"}</div>${ptTag}`
     :`<div class="sbox2">
         <input class="sinp" type="number" min="0" max="30" id="ph_${m.id}" value="${pal?.hs??""}" placeholder="0">
         <span class="ssep">×</span>
@@ -817,7 +854,7 @@ async function renderMyPalpites(){
       if(res)semPalpite++;
     }
     const palStr=pal?`<span style="font-family:'Russo One',sans-serif;font-size:1.1rem;color:var(--green)">${pal.hs} × ${pal.as}</span>`:`<span style="color:var(--muted);font-size:.85rem">—</span>`;
-    const resStr=res?`<span style="font-family:'Russo One',sans-serif;font-size:1.1rem;color:var(--gold)">${res.hs} × ${res.as}</span>`:`<span style="color:var(--muted);font-size:.8rem">não iniciado</span>`;
+    const resStr=res?`<span style="font-family:'Russo One',sans-serif;font-size:1.1rem;color:var(--gold)">${res.hs??res.home_score} × ${res.as??res.away_score}</span>`:`<span style="color:var(--muted);font-size:.8rem">não iniciado</span>`;
     html+=`<div class="mrow ${res?"done":""}">
       <div class="mmeta"><b>Gr.${m.g}</b>${new Date(m.d).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</div>
       <div class="mteams"><span class="fl">${m.hf}</span><span>${m.h}</span><span class="vs">vs</span><span>${m.a}</span><span class="fl">${m.af}</span></div>
@@ -848,7 +885,7 @@ async function renderMyPalpites(){
       let badge="";
       if(res&&pal){if(pts>=20)badge=`<span class="ptag pexact">+${pts} pts ⭐</span>`;else if(pts>0)badge=`<span class="ptag ppart">+${pts} pts</span>`;else badge=`<span class="ptag pmiss">0 pts</span>`;}
       const palStr=pal?`<span style="font-family:'Russo One',sans-serif;font-size:1.1rem;color:var(--green)">${pal.hs} × ${pal.as}</span>`:`<span style="color:var(--muted);font-size:.85rem">sem palpite</span>`;
-      const resStr=res?`<span style="font-family:'Russo One',sans-serif;font-size:1.1rem;color:var(--gold)">${res.hs} × ${res.as}</span>`:`<span style="color:var(--muted);font-size:.8rem">não iniciado</span>`;
+      const resStr=res?`<span style="font-family:'Russo One',sans-serif;font-size:1.1rem;color:var(--gold)">${res.hs??res.home_score} × ${res.as??res.away_score}</span>`:`<span style="color:var(--muted);font-size:.8rem">não iniciado</span>`;
       const lb=res?`${res.h||m.lb.split(" vs ")[0]} vs ${res.a||m.lb.split(" vs ")[1]}`:m.lb;
       khtml+=`<div class="mrow ${res?"done":""}">
         <div class="mmeta"><b>${rnd.round}</b></div>
@@ -970,7 +1007,7 @@ window.aResPhase=(ph,btn)=>{
       <div class="amrow">
         <div class="tn">${m.hf} ${m.h} × ${m.a} ${m.af} <span style="font-size:.7rem;color:var(--muted)"> Gr.${m.g} · ${fmtDt(m.d)}</span></div>
         <div class="asc">
-          <input type="number" id="ah_${m.id}" min="0" max="30" value="${r.hs??""}" placeholder="0">
+          <input type="number" id="ah_${m.id}" min="0" max="30" value="${r.hs??r.home_score??""}" placeholder="0">
           <span style="color:var(--muted);font-family:'Russo One',sans-serif">×</span>
           <input type="number" id="aa_${m.id}" min="0" max="30" value="${r.as??""}" placeholder="0">
         </div>
@@ -986,7 +1023,7 @@ window.aResPhase=(ph,btn)=>{
           <input style="width:130px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 10px;font-family:'DM Sans',sans-serif;font-size:.85rem" id="aan_${m.id}" value="${r.a||""}" placeholder="Time fora">
         </div>
         <div class="asc">
-          <input type="number" id="ah_${m.id}" min="0" max="30" value="${r.hs??""}" placeholder="0">
+          <input type="number" id="ah_${m.id}" min="0" max="30" value="${r.hs??r.home_score??""}" placeholder="0">
           <span style="color:var(--muted);font-family:'Russo One',sans-serif">×</span>
           <input type="number" id="aa_${m.id}" min="0" max="30" value="${r.as??""}" placeholder="0">
         </div>
@@ -1006,18 +1043,54 @@ window.setRes=async(mid,isKO)=>{
 };
 window.delRes=async(mid)=>{await deleteDoc(doc(db,"results",mid));delete RES[mid];toast("Removido.","inf");aResPhase(_aResPhase)};
 window.recalcAll=async()=>{
-  const batch=writeBatch(db);
-  for(const u of Object.values(USERS)){
-    const psn=await getDocs(collection(db,`palpites/${u.uid}/matches`));
-    let pg=0,pk=0,ps=0;
-    psn.forEach(d=>{const p=d.data(),r=RES[d.id];if(!r)return;const pts=calcPts(p,r,p.isKO);if(p.isKO)pk+=pts;else pg+=pts});
-    const spSn=await getDoc(doc(db,"specials",u.uid));
-    const cfgSn=await getDoc(doc(db,"config","specials_result"));
-    if(spSn.exists()&&cfgSn.exists()){const sp=spSn.data(),cfg=cfgSn.data();if(cfg.champion&&sp.champion===cfg.champion)ps+=30;if(cfg.scorer&&sp.scorer?.toLowerCase()===cfg.scorer?.toLowerCase())ps+=15}
-    batch.update(doc(db,"users",u.uid),{pts:pg+pk+ps,ptsGroups:pg,ptsKnockout:pk,ptsSpecial:ps});
-    USERS[u.uid]={...u,pts:pg+pk+ps,ptsGroups:pg,ptsKnockout:pk,ptsSpecial:ps};
+  toast("Recalculando...","inf");
+  try{
+    // Recarregar resultados frescos do Firestore
+    const resSn=await getDocs(collection(db,"results"));
+    const freshRes={};
+    resSn.forEach(d=>{freshRes[d.id]=d.data()});
+    console.log("Resultados encontrados:",Object.keys(freshRes).length, Object.keys(freshRes));
+
+    // Recarregar users frescos
+    const usersSn=await getDocs(collection(db,"users"));
+    const freshUsers={};
+    usersSn.forEach(d=>{freshUsers[d.id]=d.data()});
+    console.log("Users encontrados:",Object.keys(freshUsers).length);
+
+    const batch=writeBatch(db);
+    for(const u of Object.values(freshUsers)){
+      const psn=await getDocs(collection(db,`palpites/${u.uid}/matches`));
+      let pg=0,pk=0,ps=0;
+      console.log(`User ${u.name}: ${psn.size} palpites`);
+      psn.forEach(d=>{
+        const p=d.data(),r=freshRes[d.id];
+        const pn={hs:p.hs??p.home_score, as:p.as??p.away_score, isKO:p.isKO};
+        const rn=r?{hs:r.hs??r.home_score, as:r.as??r.away_score}:null;
+        console.log(`  jogo ${d.id}: palpite=${JSON.stringify(pn)}, resultado=${JSON.stringify(rn)}`);
+        if(!rn){console.log(`  -> sem resultado`);return;}
+        const pts=calcPts(pn,rn,pn.isKO);
+        console.log(`  -> pts=${pts}`);
+        if(pn.isKO)pk+=pts;else pg+=pts;
+      });
+      const spSn=await getDoc(doc(db,"specials",u.uid));
+      const cfgSn=await getDoc(doc(db,"config","specials_result"));
+      if(spSn.exists()&&cfgSn.exists()){
+        const sp=spSn.data(),cfg=cfgSn.data();
+        if(cfg.champion&&sp.champion===cfg.champion)ps+=30;
+        if(cfg.scorer&&sp.scorer?.toLowerCase()===cfg.scorer?.toLowerCase())ps+=15;
+      }
+      const total=pg+pk+ps;
+      console.log(`User ${u.name}: pg=${pg} pk=${pk} ps=${ps} total=${total}`);
+      await setDoc(doc(db,"users",u.uid),{pts:total,ptsGroups:pg,ptsKnockout:pk,ptsSpecial:ps},{merge:true});
+      USERS[u.uid]={...u,pts:total,ptsGroups:pg,ptsKnockout:pk,ptsSpecial:ps};
+    }
+    RES={...freshRes};
+    toast("Pontos recalculados! 🔢","ok");
+    renderRanking();
+  }catch(e){
+    console.error("Erro recalcAll:",e);
+    toast("Erro: "+e.message,"err");
   }
-  await batch.commit();toast("Pontos recalculados! 🔢","ok");
 };
 async function renderPart(){
   const rk=ranking();
