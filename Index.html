@@ -484,7 +484,7 @@ const GM=[
   {id:"b1",g:"B",h:"Canadá",hf:"🇨🇦",a:"Bósnia",af:"🇧🇦",d:"2026-06-12T16:00"},
   {id:"d1",g:"D",h:"Estados Unidos",hf:"🇺🇸",a:"Paraguai",af:"🇵🇾",d:"2026-06-12T22:00"},
   // 13 de junho
-  {id:"d2",g:"D",h:"Austrália",hf:"🇦🇺",a:"Turquia",af:"🇹🇷",d:"2026-06-13T01:00"},
+  {id:"d2",g:"D",h:"Austrália",hf:"🇦🇺",a:"Turquia",af:"🇹🇷",d:"2026-06-14T01:00"},
   {id:"b2",g:"B",h:"Catar",hf:"🇶🇦",a:"Suíça",af:"🇨🇭",d:"2026-06-13T16:00"},
   {id:"c1",g:"C",h:"Brasil",hf:"🇧🇷",a:"Marrocos",af:"🇲🇦",d:"2026-06-13T19:00"},
   {id:"c2",g:"C",h:"Haiti",hf:"🇭🇹",a:"Escócia",af:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",d:"2026-06-13T22:00"},
@@ -1081,11 +1081,12 @@ window.recalcAll=async()=>{
       }
       const total=pg+pk+ps;
       console.log(`User ${u.name}: pg=${pg} pk=${pk} ps=${ps} total=${total}`);
-      batch.update(doc(db,"users",u.uid),{pts:total,ptsGroups:pg,ptsKnockout:pk,ptsSpecial:ps});
+      console.log(`Salvando ${u.name} uid=${u.uid} total=${total}`);
+      await setDoc(doc(db,"users",u.uid),{pts:total,ptsGroups:pg,ptsKnockout:pk,ptsSpecial:ps},{merge:true});
+      console.log(`Salvo com sucesso: ${u.name}`);
       USERS[u.uid]={...u,pts:total,ptsGroups:pg,ptsKnockout:pk,ptsSpecial:ps};
     }
     RES={...freshRes};
-    await batch.commit();
     toast("Pontos recalculados! 🔢","ok");
     renderRanking();
   }catch(e){
