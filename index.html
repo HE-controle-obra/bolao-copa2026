@@ -427,6 +427,7 @@ main{flex:1;max-width:1100px;width:100%;margin:0 auto;padding:28px 20px}
           <button class="atab" onclick="aTab('part',this)">Participantes</button>
           <button class="atab" onclick="aTab('prem',this)">Premiação</button>
           <button class="atab" onclick="aTab('api',this)">API Status</button>
+          <button class="atab" onclick="aTab('mig',this)">Migração</button>
         </div>
         <div id="a-res">
           <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
@@ -457,6 +458,27 @@ main{flex:1;max-width:1100px;width:100%;margin:0 auto;padding:28px 20px}
           <button class="btn btn-outline btn-sm" onclick="testApi()">🔌 Testar Conexão</button>
           <div id="api-res" style="margin-top:14px;font-size:.85rem"></div>
         </div>
+        <div id="a-mig" style="display:none">
+          <div style="background:rgba(255,214,0,0.08);border:1px solid rgba(255,214,0,0.3);border-radius:10px;padding:16px;margin-bottom:20px">
+            <div style="font-weight:700;color:var(--gold);margin-bottom:8px">⚠️ Correção da tabela revisada (16/06)</div>
+            <p style="font-size:.8rem;color:var(--muted);margin-bottom:12px">
+              Ao corrigir a tabela oficial da Copa 2026, 5 pares de jogos trocaram de ordem dentro do mesmo dia
+              (e5↔e6, f5↔f6, g5↔g6, h5↔h6, j5↔j6). Clique abaixo uma única vez para corrigir os palpites de todos os participantes nesses jogos.
+            </p>
+            <button class="btn btn-gold btn-sm" onclick="swapPalpites()">🔁 Corrigir os 5 pares trocados</button>
+          </div>
+          <p style="font-size:.8rem;color:var(--muted);margin-bottom:14px">
+            Use esta ferramenta se um jogo trocou de ID (ex: ajustes na tabela) e palpites ficaram "presos" no ID antigo.
+            Informe o ID antigo e o novo — os palpites de todos os usuários que existirem no ID antigo (e ainda não existirem no novo) serão copiados.
+          </p>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px">
+            <div class="field" style="margin:0"><label>ID antigo (origem)</label><input type="text" id="mig-old" placeholder="ex: e2"/></div>
+            <div class="field" style="margin:0"><label>ID novo (destino)</label><input type="text" id="mig-new" placeholder="ex: f1"/></div>
+          </div>
+          <button class="btn btn-green btn-sm" onclick="migrarPalpites()">🔁 Buscar e Copiar Palpites</button>
+          <div id="mig-res" style="margin-top:14px;font-size:.85rem"></div>
+        </div>
+
       </div>
     </div>
 
@@ -474,97 +496,97 @@ const auth=getAuth(app);
 const db=getFirestore(app);
 
 /* ─── DADOS DOS JOGOS ─── */
-const TEAMS=["México","Coreia do Sul","África do Sul","Rep. Tcheca","Canadá","Suíça","Catar","Bósnia","Brasil","Marrocos","Escócia","Haiti","Estados Unidos","Austrália","Paraguai","Turquia","Alemanha","Equador","Costa do Marfim","Curaçao","Holanda","Japão","Tunísia","Suécia","Bélgica","Irã","Egito","Nova Zelândia","Espanha","Cabo Verde","Arábia Saudita","Uruguai","França","Senegal","Noruega","Iraque","Argentina","Argélia","Áustria","Jordânia","Portugal","Uzbequistão","Colômbia","RD Congo","Inglaterra","Croácia","Gana","Panamá"].sort();
+const TEAMS=["México","África do Sul","Coreia do Sul","Rep. Tcheca","Canadá","Bósnia","Estados Unidos","Paraguai","Catar","Suíça","Brasil","Marrocos","Haiti","Escócia","Austrália","Turquia","Alemanha","Curaçao","Holanda","Japão","Costa do Marfim","Equador","Suécia","Tunísia","Espanha","Cabo Verde","Bélgica","Egito","Arábia Saudita","Uruguai","Irã","Nova Zelândia","França","Senegal","Iraque","Noruega","Argentina","Argélia","Áustria","Jordânia","Portugal","RD Congo","Inglaterra","Croácia","Gana","Panamá","Uzbequistão","Colômbia"].sort();
 const GM=[
-  // 11 de junho (já encerrados)
+  // 11/06
   {id:"a1",g:"A",h:"México",hf:"🇲🇽",a:"África do Sul",af:"🇿🇦",d:"2026-06-11T16:00"},
   {id:"a2",g:"A",h:"Coreia do Sul",hf:"🇰🇷",a:"Rep. Tcheca",af:"🇨🇿",d:"2026-06-11T23:00"},
-  // 12 de junho (já encerrados)
+  // 12/06
   {id:"b1",g:"B",h:"Canadá",hf:"🇨🇦",a:"Bósnia",af:"🇧🇦",d:"2026-06-12T16:00"},
   {id:"d1",g:"D",h:"Estados Unidos",hf:"🇺🇸",a:"Paraguai",af:"🇵🇾",d:"2026-06-12T22:00"},
-  // 13 de junho (já encerrados)
+  // 13/06
   {id:"b2",g:"B",h:"Catar",hf:"🇶🇦",a:"Suíça",af:"🇨🇭",d:"2026-06-13T16:00"},
   {id:"c1",g:"C",h:"Brasil",hf:"🇧🇷",a:"Marrocos",af:"🇲🇦",d:"2026-06-13T19:00"},
   {id:"c2",g:"C",h:"Haiti",hf:"🇭🇹",a:"Escócia",af:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",d:"2026-06-13T22:00"},
-  // 14 de junho
+  // 14/06
   {id:"d2",g:"D",h:"Austrália",hf:"🇦🇺",a:"Turquia",af:"🇹🇷",d:"2026-06-14T01:00"},
   {id:"e1",g:"E",h:"Alemanha",hf:"🇩🇪",a:"Curaçao",af:"🇨🇼",d:"2026-06-14T14:00"},
   {id:"f1",g:"F",h:"Holanda",hf:"🇳🇱",a:"Japão",af:"🇯🇵",d:"2026-06-14T17:00"},
   {id:"e2",g:"E",h:"Costa do Marfim",hf:"🇨🇮",a:"Equador",af:"🇪🇨",d:"2026-06-14T20:00"},
   {id:"f2",g:"F",h:"Suécia",hf:"🇸🇪",a:"Tunísia",af:"🇹🇳",d:"2026-06-14T23:00"},
-  // 15 de junho
+  // 15/06
   {id:"h1",g:"H",h:"Espanha",hf:"🇪🇸",a:"Cabo Verde",af:"🇨🇻",d:"2026-06-15T13:00"},
   {id:"g1",g:"G",h:"Bélgica",hf:"🇧🇪",a:"Egito",af:"🇪🇬",d:"2026-06-15T16:00"},
   {id:"h2",g:"H",h:"Arábia Saudita",hf:"🇸🇦",a:"Uruguai",af:"🇺🇾",d:"2026-06-15T19:00"},
   {id:"g2",g:"G",h:"Irã",hf:"🇮🇷",a:"Nova Zelândia",af:"🇳🇿",d:"2026-06-15T22:00"},
-  // 16 de junho
+  // 16/06
   {id:"i1",g:"I",h:"França",hf:"🇫🇷",a:"Senegal",af:"🇸🇳",d:"2026-06-16T16:00"},
   {id:"i2",g:"I",h:"Iraque",hf:"🇮🇶",a:"Noruega",af:"🇳🇴",d:"2026-06-16T19:00"},
   {id:"j1",g:"J",h:"Argentina",hf:"🇦🇷",a:"Argélia",af:"🇩🇿",d:"2026-06-16T22:00"},
-  // 17 de junho
+  // 17/06
   {id:"j2",g:"J",h:"Áustria",hf:"🇦🇹",a:"Jordânia",af:"🇯🇴",d:"2026-06-17T01:00"},
   {id:"k1",g:"K",h:"Portugal",hf:"🇵🇹",a:"RD Congo",af:"🇨🇩",d:"2026-06-17T14:00"},
   {id:"l1",g:"L",h:"Inglaterra",hf:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",a:"Croácia",af:"🇭🇷",d:"2026-06-17T17:00"},
   {id:"l2",g:"L",h:"Gana",hf:"🇬🇭",a:"Panamá",af:"🇵🇦",d:"2026-06-17T20:00"},
   {id:"k2",g:"K",h:"Uzbequistão",hf:"🇺🇿",a:"Colômbia",af:"🇨🇴",d:"2026-06-17T23:00"},
-  // 18 de junho
+  // 18/06
   {id:"a3",g:"A",h:"Rep. Tcheca",hf:"🇨🇿",a:"África do Sul",af:"🇿🇦",d:"2026-06-18T13:00"},
   {id:"b3",g:"B",h:"Suíça",hf:"🇨🇭",a:"Bósnia",af:"🇧🇦",d:"2026-06-18T16:00"},
   {id:"b4",g:"B",h:"Canadá",hf:"🇨🇦",a:"Catar",af:"🇶🇦",d:"2026-06-18T19:00"},
-  {id:"a4",g:"A",h:"México",hf:"🇲🇽",a:"Coreia do Sul",af:"🇰🇷",d:"2026-06-19T00:00"},
-  // 19 de junho
-  {id:"d3",g:"D",h:"Estados Unidos",hf:"🇺🇸",a:"Austrália",af:"🇦🇺",d:"2026-06-19T16:00"},
+  {id:"a4",g:"A",h:"México",hf:"🇲🇽",a:"Coreia do Sul",af:"🇰🇷",d:"2026-06-18T22:00"},
+  // 19/06
+  {id:"d3",g:"D",h:"Turquia",hf:"🇹🇷",a:"Paraguai",af:"🇵🇾",d:"2026-06-19T01:00"},
+  {id:"d4",g:"D",h:"Estados Unidos",hf:"🇺🇸",a:"Austrália",af:"🇦🇺",d:"2026-06-19T16:00"},
   {id:"c3",g:"C",h:"Escócia",hf:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",a:"Marrocos",af:"🇲🇦",d:"2026-06-19T19:00"},
-  {id:"c4",g:"C",h:"Brasil",hf:"🇧🇷",a:"Haiti",af:"🇭🇹",d:"2026-06-19T22:00"},
-  // 20 de junho
-  {id:"d4",g:"D",h:"Turquia",hf:"🇹🇷",a:"Paraguai",af:"🇵🇾",d:"2026-06-20T01:00"},
+  {id:"c4",g:"C",h:"Brasil",hf:"🇧🇷",a:"Haiti",af:"🇭🇹",d:"2026-06-19T21:30"},
+  // 20/06
   {id:"f3",g:"F",h:"Holanda",hf:"🇳🇱",a:"Suécia",af:"🇸🇪",d:"2026-06-20T14:00"},
   {id:"e3",g:"E",h:"Alemanha",hf:"🇩🇪",a:"Costa do Marfim",af:"🇨🇮",d:"2026-06-20T17:00"},
   {id:"e4",g:"E",h:"Equador",hf:"🇪🇨",a:"Curaçao",af:"🇨🇼",d:"2026-06-20T21:00"},
-  // 21 de junho
+  // 21/06
   {id:"f4",g:"F",h:"Tunísia",hf:"🇹🇳",a:"Japão",af:"🇯🇵",d:"2026-06-21T01:00"},
   {id:"h3",g:"H",h:"Espanha",hf:"🇪🇸",a:"Arábia Saudita",af:"🇸🇦",d:"2026-06-21T13:00"},
   {id:"g3",g:"G",h:"Bélgica",hf:"🇧🇪",a:"Irã",af:"🇮🇷",d:"2026-06-21T16:00"},
   {id:"h4",g:"H",h:"Uruguai",hf:"🇺🇾",a:"Cabo Verde",af:"🇨🇻",d:"2026-06-21T19:00"},
   {id:"g4",g:"G",h:"Nova Zelândia",hf:"🇳🇿",a:"Egito",af:"🇪🇬",d:"2026-06-21T22:00"},
-  // 22 de junho
+  // 22/06
   {id:"j3",g:"J",h:"Argentina",hf:"🇦🇷",a:"Áustria",af:"🇦🇹",d:"2026-06-22T14:00"},
   {id:"i3",g:"I",h:"França",hf:"🇫🇷",a:"Iraque",af:"🇮🇶",d:"2026-06-22T18:00"},
   {id:"i4",g:"I",h:"Noruega",hf:"🇳🇴",a:"Senegal",af:"🇸🇳",d:"2026-06-22T21:00"},
-  // 23 de junho
+  // 23/06
   {id:"j4",g:"J",h:"Jordânia",hf:"🇯🇴",a:"Argélia",af:"🇩🇿",d:"2026-06-23T00:00"},
   {id:"k3",g:"K",h:"Portugal",hf:"🇵🇹",a:"Uzbequistão",af:"🇺🇿",d:"2026-06-23T14:00"},
   {id:"l3",g:"L",h:"Inglaterra",hf:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",a:"Gana",af:"🇬🇭",d:"2026-06-23T17:00"},
   {id:"l4",g:"L",h:"Panamá",hf:"🇵🇦",a:"Croácia",af:"🇭🇷",d:"2026-06-23T20:00"},
   {id:"k4",g:"K",h:"Colômbia",hf:"🇨🇴",a:"RD Congo",af:"🇨🇩",d:"2026-06-23T23:00"},
-  // 24 de junho
+  // 24/06
   {id:"b5",g:"B",h:"Suíça",hf:"🇨🇭",a:"Canadá",af:"🇨🇦",d:"2026-06-24T16:00"},
   {id:"b6",g:"B",h:"Bósnia",hf:"🇧🇦",a:"Catar",af:"🇶🇦",d:"2026-06-24T16:00"},
   {id:"c5",g:"C",h:"Escócia",hf:"🏴󠁧󠁢󠁳󠁣󠁴󠁿",a:"Brasil",af:"🇧🇷",d:"2026-06-24T19:00"},
   {id:"c6",g:"C",h:"Marrocos",hf:"🇲🇦",a:"Haiti",af:"🇭🇹",d:"2026-06-24T19:00"},
   {id:"a5",g:"A",h:"Rep. Tcheca",hf:"🇨🇿",a:"México",af:"🇲🇽",d:"2026-06-24T22:00"},
   {id:"a6",g:"A",h:"África do Sul",hf:"🇿🇦",a:"Coreia do Sul",af:"🇰🇷",d:"2026-06-24T22:00"},
-  // 25 de junho
-  {id:"e5",g:"E",h:"Equador",hf:"🇪🇨",a:"Alemanha",af:"🇩🇪",d:"2026-06-25T17:00"},
-  {id:"e6",g:"E",h:"Curaçao",hf:"🇨🇼",a:"Costa do Marfim",af:"🇨🇮",d:"2026-06-25T17:00"},
-  {id:"f5",g:"F",h:"Tunísia",hf:"🇹🇳",a:"Holanda",af:"🇳🇱",d:"2026-06-25T20:00"},
-  {id:"f6",g:"F",h:"Japão",hf:"🇯🇵",a:"Suécia",af:"🇸🇪",d:"2026-06-25T20:00"},
+  // 25/06
+  {id:"e5",g:"E",h:"Curaçao",hf:"🇨🇼",a:"Costa do Marfim",af:"🇨🇮",d:"2026-06-25T17:00"},
+  {id:"e6",g:"E",h:"Equador",hf:"🇪🇨",a:"Alemanha",af:"🇩🇪",d:"2026-06-25T17:00"},
+  {id:"f5",g:"F",h:"Japão",hf:"🇯🇵",a:"Suécia",af:"🇸🇪",d:"2026-06-25T20:00"},
+  {id:"f6",g:"F",h:"Tunísia",hf:"🇹🇳",a:"Holanda",af:"🇳🇱",d:"2026-06-25T20:00"},
   {id:"d5",g:"D",h:"Turquia",hf:"🇹🇷",a:"Estados Unidos",af:"🇺🇸",d:"2026-06-25T23:00"},
   {id:"d6",g:"D",h:"Paraguai",hf:"🇵🇾",a:"Austrália",af:"🇦🇺",d:"2026-06-25T23:00"},
-  // 26 de junho
+  // 26/06
   {id:"i5",g:"I",h:"Noruega",hf:"🇳🇴",a:"França",af:"🇫🇷",d:"2026-06-26T16:00"},
   {id:"i6",g:"I",h:"Senegal",hf:"🇸🇳",a:"Iraque",af:"🇮🇶",d:"2026-06-26T16:00"},
-  {id:"h5",g:"H",h:"Uruguai",hf:"🇺🇾",a:"Espanha",af:"🇪🇸",d:"2026-06-26T21:00"},
-  {id:"h6",g:"H",h:"Cabo Verde",hf:"🇨🇻",a:"Arábia Saudita",af:"🇸🇦",d:"2026-06-26T21:00"},
-  // 27 de junho
-  {id:"g5",g:"G",h:"Nova Zelândia",hf:"🇳🇿",a:"Bélgica",af:"🇧🇪",d:"2026-06-27T00:00"},
-  {id:"g6",g:"G",h:"Egito",hf:"🇪🇬",a:"Irã",af:"🇮🇷",d:"2026-06-27T00:00"},
+  {id:"h5",g:"H",h:"Cabo Verde",hf:"🇨🇻",a:"Arábia Saudita",af:"🇸🇦",d:"2026-06-26T21:00"},
+  {id:"h6",g:"H",h:"Uruguai",hf:"🇺🇾",a:"Espanha",af:"🇪🇸",d:"2026-06-26T21:00"},
+  // 27/06
+  {id:"g5",g:"G",h:"Egito",hf:"🇪🇬",a:"Irã",af:"🇮🇷",d:"2026-06-27T00:00"},
+  {id:"g6",g:"G",h:"Nova Zelândia",hf:"🇳🇿",a:"Bélgica",af:"🇧🇪",d:"2026-06-27T00:00"},
   {id:"l5",g:"L",h:"Panamá",hf:"🇵🇦",a:"Inglaterra",af:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",d:"2026-06-27T18:00"},
   {id:"l6",g:"L",h:"Croácia",hf:"🇭🇷",a:"Gana",af:"🇬🇭",d:"2026-06-27T18:00"},
   {id:"k5",g:"K",h:"Colômbia",hf:"🇨🇴",a:"Portugal",af:"🇵🇹",d:"2026-06-27T20:30"},
   {id:"k6",g:"K",h:"RD Congo",hf:"🇨🇩",a:"Uzbequistão",af:"🇺🇿",d:"2026-06-27T20:30"},
-  {id:"j5",g:"J",h:"Jordânia",hf:"🇯🇴",a:"Argentina",af:"🇦🇷",d:"2026-06-27T23:00"},
-  {id:"j6",g:"J",h:"Argélia",hf:"🇩🇿",a:"Áustria",af:"🇦🇹",d:"2026-06-27T23:00"},
+  {id:"j5",g:"J",h:"Argélia",hf:"🇩🇿",a:"Áustria",af:"🇦🇹",d:"2026-06-27T23:00"},
+  {id:"j6",g:"J",h:"Jordânia",hf:"🇯🇴",a:"Argentina",af:"🇦🇷",d:"2026-06-27T23:00"},
 ];
 
 const KO=[
@@ -797,14 +819,26 @@ function mRow(m,pal,res,isKO){
   const lk=m.d?isLocked(m.d):!!res;
   const pts=calcPts(pal,res,isKO);
   const ptTag=res&&pal?(pts>=(isKO?20:10)?`<span class="ptag pexact">+${pts} pts ⭐</span>`:pts>0?`<span class="ptag ppart">+${pts} pts</span>`:`<span class="ptag pmiss">0 pts</span>`):(res&&!pal?`<span style="font-size:.72rem;color:var(--muted)">sem palpite</span>`:"");
-  const sc=lk
-    ?`<div class="rdisp">${res?(res.hs??res.home_score)+" × "+(res.as??res.away_score):"? × ?"}</div>${ptTag}`
-    :`<div class="sbox2">
+  let sc;
+  if(lk){
+    if(res){
+      sc=`<div class="rdisp">${res.hs??res.home_score} × ${res.as??res.away_score}</div>${ptTag}`;
+    }else if(pal){
+      sc=`<div style="text-align:center">
+            <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Seu palpite</div>
+            <div class="rdisp" style="color:var(--green)">${pal.hs} × ${pal.as}</div>
+          </div>`;
+    }else{
+      sc=`<div class="rdisp">? × ?</div>`;
+    }
+  }else{
+    sc=`<div class="sbox2">
         <input class="sinp" type="number" min="0" max="30" id="ph_${m.id}" value="${pal?.hs??""}" placeholder="0">
         <span class="ssep">×</span>
         <input class="sinp" type="number" min="0" max="30" id="pa_${m.id}" value="${pal?.as??""}" placeholder="0">
         <button class="bsave" onclick="savePal('${m.id}',${!!isKO},'${m.d||""}')">Salvar</button>
       </div>`;
+  }
   return `<div class="mrow ${lk?"locked":""} ${res?"done":""}">
     <div class="mmeta"><b>${m.g}</b>${m.d?fmtDt(m.d):""}</div>
     <div class="mteams"><span class="fl">${m.hf}</span><span>${m.h}</span><span class="vs">vs</span><span>${m.a}</span><span class="fl">${m.af}</span></div>
@@ -1004,7 +1038,7 @@ async function renderRules(){
 function renderAdmin(){if(!CUR.isAdmin)return;aResPhase("groups");loadPremCfg()}
 window.aTab=(tab,btn)=>{
   document.querySelectorAll(".atab").forEach(b=>b.classList.remove("active"));btn.classList.add("active");
-  ["res","part","prem","api"].forEach(t=>$(("a-"+t)).style.display=t===tab?"block":"none");
+  ["res","part","prem","api","mig"].forEach(t=>$(("a-"+t)).style.display=t===tab?"block":"none");
   if(tab==="part")renderPart();if(tab==="prem")loadPremCfg();
 };
 window.aResPhase=(ph,btn)=>{
@@ -1157,6 +1191,57 @@ window.fetchApiResults=async()=>{
     }
     await batch.commit();await recalcAll();toast("Resultados importados!","ok");aResPhase(_aResPhase);
   }catch(e){toast("Erro: "+e.message,"err")}
+};
+window.swapPalpites=async()=>{
+  const pairs=["e5,e6","f5,f6","g5,g6","h5,h6","j5,j6"];
+  $("mig-res").innerHTML=`<div style="color:var(--muted)">Trocando palpites...</div>`;
+  let log=[];
+  for(const pair of pairs){
+    const [idA,idB]=pair.split(",");
+    let trocados=0;
+    for(const u of Object.values(USERS)){
+      try{
+        const snapA=await getDoc(doc(db,`palpites/${u.uid}/matches`,idA));
+        const snapB=await getDoc(doc(db,`palpites/${u.uid}/matches`,idB));
+        const dataA=snapA.exists()?snapA.data():null;
+        const dataB=snapB.exists()?snapB.data():null;
+        if(dataA){await setDoc(doc(db,`palpites/${u.uid}/matches`,idB),dataA);trocados++;}
+        else{await deleteDoc(doc(db,`palpites/${u.uid}/matches`,idB)).catch(()=>{});}
+        if(dataB){await setDoc(doc(db,`palpites/${u.uid}/matches`,idA),dataB);}
+        else{await deleteDoc(doc(db,`palpites/${u.uid}/matches`,idA)).catch(()=>{});}
+      }catch(e){console.error(u.name,pair,e)}
+    }
+    log.push(`${idA} ↔ ${idB}: ${trocados} palpite(s) trocado(s)`);
+  }
+  $("mig-res").innerHTML=`<div style="background:var(--bg3);border-radius:8px;padding:10px 14px">${log.map(l=>`<div>${l}</div>`).join("")}</div>`;
+  toast("Troca concluída! 🔁","ok");
+  await recalcAll();
+};
+window.migrarPalpites=async()=>{
+  const oldId=$("mig-old").value.trim();
+  const newId=$("mig-new").value.trim();
+  if(!oldId||!newId){toast("Preencha os dois IDs.","err");return}
+  if(oldId===newId){toast("IDs precisam ser diferentes.","err");return}
+  $("mig-res").innerHTML=`<div style="color:var(--muted)">Buscando...</div>`;
+  let copiados=[],semOrigem=0,jaTinhamDestino=0;
+  for(const u of Object.values(USERS)){
+    try{
+      const oldSnap=await getDoc(doc(db,`palpites/${u.uid}/matches`,oldId));
+      if(!oldSnap.exists()){semOrigem++;continue}
+      const newSnap=await getDoc(doc(db,`palpites/${u.uid}/matches`,newId));
+      if(newSnap.exists()){jaTinhamDestino++;continue}
+      const data=oldSnap.data();
+      await setDoc(doc(db,`palpites/${u.uid}/matches`,newId),data);
+      copiados.push(`${u.name}: ${data.hs??data.home_score} × ${data.as??data.away_score}`);
+    }catch(e){console.error(u.name,e)}
+  }
+  $("mig-res").innerHTML=`
+    <div style="margin-bottom:8px"><b style="color:var(--green)">${copiados.length}</b> palpite(s) copiado(s) de <code>${oldId}</code> para <code>${newId}</code></div>
+    ${copiados.length?`<div style="background:var(--bg3);border-radius:8px;padding:10px 14px;margin-bottom:8px">${copiados.map(c=>`<div>${c}</div>`).join("")}</div>`:""}
+    <div style="font-size:.78rem;color:var(--muted)">${semOrigem} usuário(s) sem palpite em ${oldId} · ${jaTinhamDestino} já tinham palpite em ${newId} (não sobrescrito)</div>
+  `;
+  if(copiados.length){toast("Palpites migrados! 🔁","ok");await recalcAll();}
+  else{toast("Nenhum palpite encontrado para migrar.","inf")}
 };
 window.testApi=async()=>{
   if(!API_FOOTBALL_KEY||API_FOOTBALL_KEY==="SUA_API_FOOTBALL_KEY"){$("api-res").innerHTML=`<span style="color:var(--red)">⚠️ API Key não configurada.</span>`;return}
