@@ -1068,9 +1068,106 @@ async function renderRules(){
 function renderAdmin(){if(!CUR.isAdmin)return;aResPhase("groups");loadPremCfg()}
 window.aTab=(tab,btn)=>{
   document.querySelectorAll(".atab").forEach(b=>b.classList.remove("active"));btn.classList.add("active");
-  ["res","part","prem","api","mig"].forEach(t=>$(("a-"+t)).style.display=t===tab?"block":"none");
-  if(tab==="part")renderPart();if(tab==="prem")loadPremCfg();
+  ["res","conf","part","prem","api","mig"].forEach(t=>$(("a-"+t)).style.display=t===tab?"block":"none");
+  if(tab==="part")renderPart();if(tab==="prem")loadPremCfg();if(tab==="conf")initConfirmacao();
 };
+
+let _confLoaded=false;
+async function initConfirmacao(){
+  // popular dropdown de jogos (grupos + mata-mata com resultado/data)
+  const sel=$("conf-select");
+  const sorted=[...GM].sort((a,b)=>new Date(a.d)-new Date(b.d));
+  sel.innerHTML=`<option value="__prox">⏰ Jogos próximos (até 2h)</option>`
+    +`<option value="__todos">📋 Todos os jogos (resumo)</option>`
+    +sorted.map(m=>`<option value="${m.id}">${fmtDt(m.d)} · ${m.h} x ${m.a}</option>`).join("");
+  renderConfirmacao();
+}
+
+async function renderConfirmacao(){
+  const sel=$("conf-select").value;
+  $("conf-result").innerHTML=`<div style="padding:20px;color:var(--muted)">Carregando palpites...</div>`;
+
+  // Carregar todos os palpites de todos os usuários (só os IDs, não os valores)
+  const users=Object.values(USERS);
+  const palByUser={}; // uid -> Set de mids
+  for(const u of users){
+    const snap=await getDocs(collection(db,`palpites/${u.uid}/matches`));
+    palByUser[u.uid]=new Set();
+    snap.forEach(d=>palByUser[u.uid].add(d.id));
+  }
+
+  // ALERTA: jogos próximos (até 2h) com gente faltando
+  const now=new Date();
+  const limite=new Date(now.getTime()+2*60*60*1000);
+  const proximos=GM.filter(m=>{
+    const p=parseBR(m.d);const dt=new Date(p.y,p.m-1,p.day,p.h,p.min);
+    return dt>now && dt<=limite;
+  });
+  let alertHtml="";
+  if(proximos.length){
+    alertHtml=`<div style="background:rgba(255,23,68,0.1);border:1px solid rgba(255,23,68,0.3);border-radius:10px;padding:14px 16px;margin-bottom:16px">
+      <div style="font-weight:700;color:var(--red);margin-bottom:8px">🔴 Jogos nas próximas 2h com palpites faltando</div>`;
+    let temFalta=false;
+    for(const m of proximos){
+      const faltam=users.filter(u=>!palByUser[u.uid].has(m.id));
+      if(faltam.length){
+        temFalta=true;
+        alertHtml+=`<div style="margin-bottom:8px">
+          <b>${m.h} x ${m.a}</b> <span style="font-size:.78rem;color:var(--muted)">(${fmtDt(m.d)})</span> — faltam ${faltam.length}:
+          <div style="font-size:.82rem;color:var(--red);margin-top:2px">${faltam.map(u=>u.name).join(", ")}</div>
+        </div>`;
+      }
+    }
+    if(!temFalta)alertHtml+=`<div style="font-size:.85rem;color:var(--green)">✅ Todos já palpitaram nos jogos próximos!</div>`;
+    alertHtml+=`</div>`;
+  }
+  $("conf-alert").innerHTML=alertHtml;
+
+  // CONTEÚDO conforme seleção
+  if(sel==="__prox"){
+    $("conf-result").innerHTML=proximos.length?"":`<div class="empty"><div class="ico">⏰</div><div>Nenhum jogo nas próximas 2 horas.</div></div>`;
+    return;
+  }
+
+  if(sel==="__todos"){
+    // resumo: cada jogo com contador X/total
+    const sorted=[...GM].sort((a,b)=>new Date(a.d)-new Date(b.d));
+    let html=`<table class="rtable"><thead><tr><th>Jogo</th><th>Data</th><th>Palpitaram</th></tr></thead><tbody>`;
+    for(const m of sorted){
+      const qtd=users.filter(u=>palByUser[u.uid].has(m.id)).length;
+      const cor=qtd===users.length?"var(--green)":qtd===0?"var(--muted)":"var(--gold)";
+      html+=`<tr>
+        <td>${m.h} x ${m.a}</td>
+        <td style="font-size:.8rem;color:var(--muted)">${fmtDt(m.d)}</td>
+        <td><span style="color:${cor};font-weight:700">${qtd}/${users.length}</span></td>
+      </tr>`;
+    }
+    html+=`</tbody></table>`;
+    $("conf-result").innerHTML=html;
+    return;
+  }
+
+  // Jogo específico: quem palpitou / quem não
+  const m=GM.find(x=>x.id===sel);
+  if(!m){$("conf-result").innerHTML="";return}
+  const fez=users.filter(u=>palByUser[u.uid].has(m.id));
+  const naoFez=users.filter(u=>!palByUser[u.uid].has(m.id));
+  $("conf-result").innerHTML=`
+    <div style="font-weight:700;margin-bottom:4px">${m.h} x ${m.a}</div>
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:16px">${fmtDt(m.d)}</div>
+    <div class="two">
+      <div>
+        <div style="font-size:.8rem;text-transform:uppercase;letter-spacing:1px;color:var(--green);margin-bottom:8px">✅ Já palpitaram (${fez.length})</div>
+        <div style="display:flex;flex-direction:column;gap:4px">${fez.map(u=>`<div style="background:rgba(0,230,118,0.08);border:1px solid rgba(0,230,118,0.2);border-radius:7px;padding:8px 12px;font-size:.85rem">${u.name}</div>`).join("")||'<div style="color:var(--muted);font-size:.85rem">Ninguém ainda</div>'}</div>
+      </div>
+      <div>
+        <div style="font-size:.8rem;text-transform:uppercase;letter-spacing:1px;color:var(--red);margin-bottom:8px">❌ Faltam (${naoFez.length})</div>
+        <div style="display:flex;flex-direction:column;gap:4px">${naoFez.map(u=>`<div style="background:rgba(255,23,68,0.06);border:1px solid rgba(255,23,68,0.18);border-radius:7px;padding:8px 12px;font-size:.85rem">${u.name}</div>`).join("")||'<div style="color:var(--green);font-size:.85rem">Todos palpitaram! 🎉</div>'}</div>
+      </div>
+    </div>`;
+}
+window.renderConfirmacao=renderConfirmacao;
+
 window.aResPhase=(ph,btn)=>{
   _aResPhase=ph;
   if(btn){document.querySelectorAll("#a-res .ptab").forEach(b=>b.classList.remove("active"));btn.classList.add("active")}
