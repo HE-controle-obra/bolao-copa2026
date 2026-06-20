@@ -499,6 +499,12 @@ main{flex:1;max-width:1100px;width:100%;margin:0 auto;padding:28px 20px}
             <div class="field" style="margin:0"><label>Placar fora</label><input type="number" id="force-a" placeholder="0"/></div>
           </div>
           <button class="btn btn-gold btn-sm" onclick="forcarPalpite()">✍️ Forçar Palpite</button>
+          <hr class="div">
+          <div style="font-weight:700;color:var(--text);margin-bottom:8px">🧹 Limpar resultados órfãos</div>
+          <p style="font-size:.8rem;color:var(--muted);margin-bottom:12px">
+            Remove resultados gravados com IDs que não pertencem à tabela oficial (ex: importações erradas da API-Football que duplicaram jogos). Corrige pontuações infladas.
+          </p>
+          <button class="btn btn-danger btn-sm" onclick="limparResultadosOrfaos()">🧹 Limpar e Recalcular</button>
         </div>
 
       </div>
@@ -1013,21 +1019,40 @@ function initReport(){const d=new Date();d.setDate(d.getDate()-1);$("rep-date").
 window.loadReport=async()=>{
   const date=$("rep-date").value;if(!date){toast("Selecione uma data.","err");return}
   $("rep-content").innerHTML=`<div style="padding:20px;color:var(--muted)">Calculando…</div>`;
-  const d0=new Date(date+"T00:00:00"),d1=new Date(date+"T23:59:59");
+
+  // Quais jogos ACONTECERAM na data selecionada (pela data do jogo, não do palpite)
+  // FONTE ÚNICA: GM (fase de grupos) + KO com resultado. Nunca IDs avulsos do RES (evita duplicação da API).
+  const jogosDoDia=new Set();
+  for(const m of GM){
+    const p=parseBR(m.d);
+    const diaJogo=`${p.y}-${String(p.m).padStart(2,"0")}-${String(p.day).padStart(2,"0")}`;
+    if(diaJogo===date)jogosDoDia.add(m.id);
+  }
+  // mata-mata: só IDs que pertencem à estrutura KO oficial (não IDs "api_" avulsos)
+  const koIds=new Set(KO.flatMap(rnd=>rnd.matches.map(m=>m.id)));
+  for(const id of koIds){
+    const r=RES[id];
+    if(r&&r.d){const p=parseBR(r.d);const dia=`${p.y}-${String(p.m).padStart(2,"0")}-${String(p.day).padStart(2,"0")}`;if(dia===date)jogosDoDia.add(id);}
+  }
+
   const users=Object.values(USERS);
+  const grupoIds=new Set(GM.map(m=>m.id));  // IDs reais de jogos de grupo
   const rows=[];
   for(const u of users){
     const psn=await getDocs(collection(db,`palpites/${u.uid}/matches`));
     let dp=0;
     psn.forEach(d=>{
-      const p=d.data(),sa=p.savedAt?.toDate();
-      if(sa&&sa>=d0&&sa<=d1){const r=RES[d.id];if(r)dp+=calcPts(p,r,p.isKO)}
+      if(!jogosDoDia.has(d.id))return;        // só jogos que aconteceram nesse dia
+      const r=RES[d.id];
+      if(!r)return;
+      const ehKO=!grupoIds.has(d.id);          // isKO determinado pela estrutura, não pelo palpite
+      dp+=calcPts(d.data(),r,ehKO);
     });
     rows.push({name:u.name,dp,total:u.pts||0});
   }
   rows.sort((a,b)=>b.dp-a.dp);
   _repRows=rows;
-  if(!rows.length){$("rep-content").innerHTML=`<div class="empty"><div class="ico">📋</div><div>Nenhum dado para esta data.</div></div>`;return}
+  if(!jogosDoDia.size){$("rep-content").innerHTML=`<div class="empty"><div class="ico">📋</div><div>Nenhum jogo com resultado lançado nessa data.</div></div>`;return}
   $("rep-content").innerHTML=`<table class="reptable">
     <thead><tr><th>#</th><th>Participante</th><th>Pts no dia</th><th>Total acumulado</th></tr></thead>
     <tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td><td>${r.name}</td>
@@ -1207,8 +1232,10 @@ window.setRes=async(mid,isKO)=>{
   if(isNaN(h)||isNaN(a)){toast("Preencha os placares!","err");return}
   const gm=GM.find(x=>x.id===mid)||{};
   const ko=KO.flatMap(r=>r.matches).find(x=>x.id===mid)||{};
-  await setDoc(doc(db,"results",mid),{hs:h,as:a,isKO,h:gm.h||$("ahn_"+mid)?.value||ko.lb?.split(" vs ")[0]||"",a:gm.a||$("aan_"+mid)?.value||ko.lb?.split(" vs ")[1]||"",hf:gm.hf||"🏳️",af:gm.af||"🏳️",d:gm.d||"",updatedAt:serverTimestamp()});
-  RES[mid]={hs:h,as:a,isKO};toast("Resultado salvo! ✅","ok");
+  const payload={hs:h,as:a,isKO,h:gm.h||$("ahn_"+mid)?.value||ko.lb?.split(" vs ")[0]||"",a:gm.a||$("aan_"+mid)?.value||ko.lb?.split(" vs ")[1]||"",hf:gm.hf||"🏳️",af:gm.af||"🏳️",d:gm.d||"",updatedAt:serverTimestamp()};
+  await setDoc(doc(db,"results",mid),payload);
+  RES[mid]={hs:h,as:a,isKO,h:payload.h,a:payload.a,hf:payload.hf,af:payload.af,d:payload.d};
+  toast("Resultado salvo! ✅","ok");
   await recalcAll();aResPhase(_aResPhase);
 };
 window.delRes=async(mid)=>{await deleteDoc(doc(db,"results",mid));delete RES[mid];toast("Removido.","inf");aResPhase(_aResPhase)};
@@ -1228,19 +1255,16 @@ window.recalcAll=async()=>{
     console.log("Users encontrados:",Object.keys(freshUsers).length);
 
     const batch=writeBatch(db);
+    const grupoIds=new Set(GM.map(m=>m.id));  // IDs reais de jogos de grupo
     for(const u of Object.values(freshUsers)){
       const psn=await getDocs(collection(db,`palpites/${u.uid}/matches`));
       let pg=0,pk=0,ps=0;
-      console.log(`User ${u.name}: ${psn.size} palpites`);
       psn.forEach(d=>{
         const p=d.data(),r=freshRes[d.id];
-        const pn={hs:p.hs??p.home_score, as:p.as??p.away_score, isKO:p.isKO};
-        const rn=r?{hs:r.hs??r.home_score, as:r.as??r.away_score}:null;
-        console.log(`  jogo ${d.id}: palpite=${JSON.stringify(pn)}, resultado=${JSON.stringify(rn)}`);
-        if(!rn){console.log(`  -> sem resultado`);return;}
-        const pts=calcPts(pn,rn,pn.isKO);
-        console.log(`  -> pts=${pts}`);
-        if(pn.isKO)pk+=pts;else pg+=pts;
+        if(!r)return;
+        const ehKO=!grupoIds.has(d.id);        // isKO pela estrutura, não pelo palpite
+        const pts=calcPts(p,r,ehKO);
+        if(ehKO)pk+=pts;else pg+=pts;
       });
       const spSn=await getDoc(doc(db,"specials",u.uid));
       const cfgSn=await getDoc(doc(db,"config","specials_result"));
@@ -1318,6 +1342,22 @@ window.fetchApiResults=async()=>{
     }
     await batch.commit();await recalcAll();toast("Resultados importados!","ok");aResPhase(_aResPhase);
   }catch(e){toast("Erro: "+e.message,"err")}
+};
+window.limparResultadosOrfaos=async()=>{
+  if(!confirm("Isso vai apagar resultados com IDs que não pertencem à tabela oficial (ex: importações erradas da API). Continuar?"))return;
+  const validIds=new Set([...GM.map(m=>m.id), ...KO.flatMap(rnd=>rnd.matches.map(m=>m.id))]);
+  const snap=await getDocs(collection(db,"results"));
+  let removidos=[];
+  for(const d of snap.docs){
+    if(!validIds.has(d.id)){
+      removidos.push(d.id);
+      await deleteDoc(doc(db,"results",d.id));
+      delete RES[d.id];
+    }
+  }
+  $("mig-res").innerHTML=`<div style="color:var(--green)">${removidos.length} resultado(s) órfão(s) removido(s): ${removidos.join(", ")||"nenhum"}</div>`;
+  toast(`${removidos.length} resultado(s) órfão(s) removido(s)`,"ok");
+  if(removidos.length)await recalcAll();
 };
 window.forcarPalpite=async()=>{
   const email=$("force-email").value.trim().toLowerCase();
