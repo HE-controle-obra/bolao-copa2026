@@ -788,20 +788,29 @@ async function renderGames(){
   const psn=await getDocs(collection(db,`palpites/${CUR.uid}/matches`));
   const myP={};psn.forEach(d=>{myP[d.id]=d.data()});
 
-  // Buscar palpites de todos os users para jogos bloqueados
-  const allPal={}; // allPal[mid] = [{name, hs, as}, ...]
+  // Confrontos de mata-mata definidos pelo admin
+  const koSnapPre=await getDocs(collection(db,"koGames"));
+  const koDefPre={};
+  koSnapPre.forEach(d=>{koDefPre[d.id]=d.data()});
+
+  // Buscar palpites de todos os users para jogos bloqueados (grupos + mata-mata)
+  const allPal={}; // allPal[mid] = [{name, hs, as}, ...]  (grupos)
+  const allKoPal={}; // allKoPal[uid][mid] = {hs,as}        (mata-mata)
   const lockedIds=GM.filter(m=>isLocked(m.d)).map(m=>m.id);
-  if(lockedIds.length>0){
-    for(const u of Object.values(USERS)){
-      if(u.uid===CUR.uid)continue;
-      const uSnap=await getDocs(collection(db,`palpites/${u.uid}/matches`));
-      uSnap.forEach(d=>{
-        if(lockedIds.includes(d.id)){
-          if(!allPal[d.id])allPal[d.id]=[];
-          allPal[d.id].push({name:u.name,hs:d.data().hs,as:d.data().as});
-        }
-      });
-    }
+  const koLockedIds=Object.keys(koDefPre).filter(id=>koDefPre[id].d&&isLocked(koDefPre[id].d));
+  for(const u of Object.values(USERS)){
+    if(u.uid===CUR.uid)continue;
+    const uSnap=await getDocs(collection(db,`palpites/${u.uid}/matches`));
+    uSnap.forEach(d=>{
+      if(lockedIds.includes(d.id)){
+        if(!allPal[d.id])allPal[d.id]=[];
+        allPal[d.id].push({name:u.name,hs:d.data().hs,as:d.data().as});
+      }
+      if(koLockedIds.includes(d.id)){
+        if(!allKoPal[u.uid])allKoPal[u.uid]={};
+        allKoPal[u.uid][d.id]={hs:d.data().hs,as:d.data().as};
+      }
+    });
   }
 
   const sorted=[...GM].sort((a,b)=>new Date(a.d)-new Date(b.d));
@@ -829,19 +838,44 @@ async function renderGames(){
     }
   }
   $("g-groups").innerHTML=html;
+  // MATA-MATA: renderiza confrontos definidos pelo admin (coleção koGames) + resultados
   let khtml="";
+  const koDef=koDefPre;
+  // agrupa por rodada na ordem oficial
   for(const rnd of KO){
-    const vis=rnd.matches.filter(m=>RES[m.id]);
-    if(!vis.length&&rnd.round!=="Oitavas")continue;
+    const definidos=rnd.matches.filter(m=>koDef[m.id]);
+    if(!definidos.length)continue;
     khtml+=`<div class="glabel">🏆 ${rnd.round}</div>`;
-    for(const m of rnd.matches){
+    for(const m of definidos){
+      const def=koDef[m.id];
       const r=RES[m.id];
-      if(!r&&rnd.round!=="Oitavas")continue;
-      const mf={id:m.id,g:rnd.round,h:r?.h||m.lb.split(" vs ")[0],hf:r?.hf||"🏳️",a:r?.a||m.lb.split(" vs ")[1],af:r?.af||"🏳️",d:r?.d||"",isKO:true};
+      const mf={id:m.id,g:rnd.round,h:def.h,hf:def.hf||"🏳️",a:def.a,af:def.af||"🏳️",d:def.d||"",isKO:true};
       khtml+=mRow(mf,myP[m.id],r,true);
+      // mostra palpites de todos se bloqueado
+      if(mf.d&&isLocked(mf.d)){
+        const outros=[];
+        for(const u of Object.values(USERS)){
+          if(u.uid===CUR.uid)continue;
+          const ps=allKoPal[u.uid]?.[m.id];
+          if(ps)outros.push({name:u.name,hs:ps.hs,as:ps.as});
+        }
+        const meu=myP[m.id];
+        const todos=meu?[{name:"Você",hs:meu.hs,as:meu.as,me:true},...outros]:outros;
+        if(todos.length){
+          khtml+=`<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;margin:-4px 0 10px;padding:10px 16px;">
+            <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px">🔒 Palpites registrados</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+              ${todos.map(p=>`<div style="background:var(--bg2);border:1px solid ${p.me?'var(--green)':'var(--border)'};border-radius:7px;padding:6px 12px;font-size:.82rem;">
+                <span style="color:${p.me?'var(--green)':'var(--muted)'};">${p.name}</span>
+                <span style="font-family:'Russo One',sans-serif;color:var(--text);margin-left:8px">${p.hs} × ${p.as}</span>
+              </div>`).join('')}
+            </div>
+          </div>`;
+        }
+      }
     }
   }
-  $("g-knockout").innerHTML=khtml||`<div class="empty"><div class="ico">⏳</div><div>Os jogos do mata-mata aparecem conforme os times se classificam.</div></div>`;
+  $("g-knockout").innerHTML=khtml||`<div class="empty"><div class="ico">⏳</div><div>Os jogos do mata-mata aparecem aqui assim que os confrontos forem definidos.</div></div>`;
 }
 function mRow(m,pal,res,isKO){
   const lk=m.d?isLocked(m.d):!!res;
@@ -1193,10 +1227,11 @@ async function renderConfirmacao(){
 }
 window.renderConfirmacao=renderConfirmacao;
 
-window.aResPhase=(ph,btn)=>{
+window.aResPhase=async(ph,btn)=>{
   _aResPhase=ph;
   if(btn){document.querySelectorAll("#a-res .ptab").forEach(b=>b.classList.remove("active"));btn.classList.add("active")}
   const list=$("a-res-list");
+  if(ph==="knockout"){await loadKoDef();}
   if(ph==="groups"){
     list.innerHTML=GM.map(m=>{const r=RES[m.id]||{};return`
       <div class="amrow">
@@ -1210,22 +1245,64 @@ window.aResPhase=(ph,btn)=>{
         ${r.hs!==undefined?`<button class="btn btn-danger btn-sm" onclick="delRes('${m.id}')">✕</button>`:""}
       </div>`}).join("");
   }else{
-    list.innerHTML=KO.flatMap(rnd=>rnd.matches.map(m=>{const r=RES[m.id]||{};return`
-      <div class="amrow">
-        <div class="tn" style="min-width:200px"><span style="font-size:.7rem;color:var(--muted)">${rnd.round} · </span>${m.lb}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          <input style="width:130px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 10px;font-family:'DM Sans',sans-serif;font-size:.85rem" id="ahn_${m.id}" value="${r.h||""}" placeholder="Time casa">
-          <input style="width:130px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 10px;font-family:'DM Sans',sans-serif;font-size:.85rem" id="aan_${m.id}" value="${r.a||""}" placeholder="Time fora">
+    // MATA-MATA: definir confronto (times/bandeiras/data) + lançar resultado
+    list.innerHTML=`<p style="font-size:.8rem;color:var(--muted);margin-bottom:14px">
+      Defina cada confronto preenchendo os times, bandeiras (emoji) e data/hora. Depois de definido, os participantes já podem palpitar. O resultado é lançado no mesmo lugar quando o jogo acabar.</p>`
+    +KO.flatMap(rnd=>rnd.matches.map(m=>{
+      const def=KO_DEF_CACHE[m.id]||{};
+      const r=RES[m.id]||{};
+      return`
+      <div class="amrow" style="flex-direction:column;align-items:stretch;gap:10px">
+        <div style="font-size:.72rem;color:var(--gold);text-transform:uppercase;letter-spacing:1px;font-weight:700">${rnd.round} · ${m.lb}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <input style="width:50px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px;font-size:1rem;text-align:center" id="kf_h_${m.id}" value="${def.hf||""}" placeholder="🏳️" title="Bandeira casa">
+          <input style="width:150px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 10px;font-family:'DM Sans',sans-serif;font-size:.85rem" id="kn_h_${m.id}" value="${def.h||""}" placeholder="Time casa">
+          <span style="color:var(--muted)">×</span>
+          <input style="width:150px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px 10px;font-family:'DM Sans',sans-serif;font-size:.85rem" id="kn_a_${m.id}" value="${def.a||""}" placeholder="Time fora">
+          <input style="width:50px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:7px;font-size:1rem;text-align:center" id="kf_a_${m.id}" value="${def.af||""}" placeholder="🏳️" title="Bandeira fora">
+          <input type="datetime-local" style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 10px;font-family:'DM Sans',sans-serif;font-size:.82rem" id="kd_${m.id}" value="${def.d||""}">
+          <button class="btn btn-gold btn-sm" onclick="defKO('${m.id}')">${def.h?"Atualizar confronto":"Definir confronto"}</button>
         </div>
-        <div class="asc">
-          <input type="number" id="ah_${m.id}" min="0" max="30" value="${r.hs??r.home_score??""}" placeholder="0">
-          <span style="color:var(--muted);font-family:'Russo One',sans-serif">×</span>
-          <input type="number" id="aa_${m.id}" min="0" max="30" value="${r.as??""}" placeholder="0">
-        </div>
-        <button class="btn btn-green btn-sm" onclick="setRes('${m.id}',true)">Confirmar</button>
-        ${r.hs!==undefined?`<button class="btn btn-danger btn-sm" onclick="delRes('${m.id}')">✕</button>`:""}
+        ${def.h?`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:.78rem;color:var(--muted)">Resultado:</span>
+          <div class="asc">
+            <input type="number" id="ah_${m.id}" min="0" max="30" value="${r.hs??""}" placeholder="0">
+            <span style="color:var(--muted);font-family:'Russo One',sans-serif">×</span>
+            <input type="number" id="aa_${m.id}" min="0" max="30" value="${r.as??""}" placeholder="0">
+          </div>
+          <button class="btn btn-green btn-sm" onclick="setResKO('${m.id}')">Lançar resultado</button>
+          ${r.hs!==undefined?`<button class="btn btn-danger btn-sm" onclick="delRes('${m.id}')">✕ resultado</button>`:""}
+        </div>`:""}
       </div>`})).join("");
   }
+};
+let KO_DEF_CACHE={};
+async function loadKoDef(){
+  const snap=await getDocs(collection(db,"koGames"));
+  KO_DEF_CACHE={};snap.forEach(d=>{KO_DEF_CACHE[d.id]=d.data()});
+}
+window.defKO=async(mid)=>{
+  const h=$("kn_h_"+mid).value.trim(), a=$("kn_a_"+mid).value.trim();
+  const hf=$("kf_h_"+mid).value.trim()||"🏳️", af=$("kf_a_"+mid).value.trim()||"🏳️";
+  const d=$("kd_"+mid).value;
+  if(!h||!a){toast("Preencha os dois times.","err");return}
+  if(!d){toast("Defina a data/hora do jogo.","err");return}
+  try{
+    await setDoc(doc(db,"koGames",mid),{h,a,hf,af,d});
+    KO_DEF_CACHE[mid]={h,a,hf,af,d};
+    toast("Confronto definido! ⚽","ok");
+    aResPhase("knockout");
+  }catch(e){toast("Erro: "+e.message,"err")}
+};
+window.setResKO=async(mid)=>{
+  const h=parseInt($("ah_"+mid)?.value),a=parseInt($("aa_"+mid)?.value);
+  if(isNaN(h)||isNaN(a)){toast("Preencha os placares!","err");return}
+  const def=KO_DEF_CACHE[mid]||{};
+  const payload={hs:h,as:a,isKO:true,h:def.h||"",a:def.a||"",hf:def.hf||"🏳️",af:def.af||"🏳️",d:def.d||"",updatedAt:serverTimestamp()};
+  await setDoc(doc(db,"results",mid),payload);
+  RES[mid]={hs:h,as:a,isKO:true,h:payload.h,a:payload.a,hf:payload.hf,af:payload.af,d:payload.d};
+  toast("Resultado lançado! ✅","ok");
+  await recalcAll();aResPhase("knockout");
 };
 window.setRes=async(mid,isKO)=>{
   const h=parseInt($("ah_"+mid)?.value),a=parseInt($("aa_"+mid)?.value);
