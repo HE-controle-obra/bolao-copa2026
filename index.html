@@ -461,6 +461,12 @@ main{flex:1;max-width:1100px;width:100%;margin:0 auto;padding:28px 20px}
           </div>
           <button class="btn btn-gold btn-sm" onclick="savePremConfig()">Salvar</button>
           <hr class="div">
+          <div style="font-weight:700;color:var(--gold);margin-bottom:4px">🏆 Palpites especiais — marcar quem pontua</div>
+          <p style="font-size:.8rem;color:var(--muted);margin-bottom:14px">Lista com o palpite de campeão e artilheiro de cada participante. Marque a caixa de quem acertou — assim você aceita variações de ortografia no artilheiro à sua escolha. Ao salvar, credita +30 (campeão) e +15 (artilheiro) só aos marcados.</p>
+          <button class="btn btn-outline btn-sm" onclick="loadSpecialsList()">🔍 Carregar palpites especiais</button>
+          <div id="specials-list" style="margin-top:14px"></div>
+          <div id="specials-res-info" style="margin-top:12px;font-size:.85rem"></div>
+          <hr class="div">
           <div id="prem-adm"></div>
         </div>
         <div id="a-api" style="display:none">
@@ -1323,16 +1329,19 @@ window.recalcAll=async()=>{
     const resSn=await getDocs(collection(db,"results"));
     const freshRes={};
     resSn.forEach(d=>{freshRes[d.id]=d.data()});
-    console.log("Resultados encontrados:",Object.keys(freshRes).length, Object.keys(freshRes));
 
     // Recarregar users frescos
     const usersSn=await getDocs(collection(db,"users"));
     const freshUsers={};
     usersSn.forEach(d=>{freshUsers[d.id]=d.data()});
-    console.log("Users encontrados:",Object.keys(freshUsers).length);
 
     const batch=writeBatch(db);
     const grupoIds=new Set(GM.map(m=>m.id));  // IDs reais de jogos de grupo
+    // Vencedores dos palpites especiais definidos manualmente pelo admin
+    const manSn=await getDoc(doc(db,"config","specials_manual"));
+    const man=manSn.exists()?manSn.data():{champWinners:[],scorerWinners:[]};
+    const champSet=new Set(man.champWinners||[]);
+    const scorerSet=new Set(man.scorerWinners||[]);
     for(const u of Object.values(freshUsers)){
       const psn=await getDocs(collection(db,`palpites/${u.uid}/matches`));
       let pg=0,pk=0,ps=0;
@@ -1343,18 +1352,10 @@ window.recalcAll=async()=>{
         const pts=calcPts(p,r,ehKO);
         if(ehKO)pk+=pts;else pg+=pts;
       });
-      const spSn=await getDoc(doc(db,"specials",u.uid));
-      const cfgSn=await getDoc(doc(db,"config","specials_result"));
-      if(spSn.exists()&&cfgSn.exists()){
-        const sp=spSn.data(),cfg=cfgSn.data();
-        if(cfg.champion&&sp.champion===cfg.champion)ps+=30;
-        if(cfg.scorer&&sp.scorer?.toLowerCase()===cfg.scorer?.toLowerCase())ps+=15;
-      }
+      if(champSet.has(u.uid))ps+=30;
+      if(scorerSet.has(u.uid))ps+=15;
       const total=pg+pk+ps;
-      console.log(`User ${u.name}: pg=${pg} pk=${pk} ps=${ps} total=${total}`);
-      console.log(`Salvando ${u.name} uid=${u.uid} total=${total}`);
       await setDoc(doc(db,"users",u.uid),{pts:total,ptsGroups:pg,ptsKnockout:pk,ptsSpecial:ps},{merge:true});
-      console.log(`Salvo com sucesso: ${u.name}`);
       USERS[u.uid]={...u,pts:total,ptsGroups:pg,ptsKnockout:pk,ptsSpecial:ps};
     }
     RES={...freshRes};
@@ -1382,6 +1383,52 @@ async function loadPremCfg(){
   $("cfg-taxa").value=c.taxa;$("cfg-p1").value=c.pct1;$("cfg-p2").value=c.pct2;$("cfg-p3").value=c.pct3;
   renderPremAdm(c);
 }
+window.loadSpecialsList=async()=>{
+  $("specials-list").innerHTML=`<div style="color:var(--muted)">Carregando palpites…</div>`;
+  // marcações já salvas
+  const manSn=await getDoc(doc(db,"config","specials_manual"));
+  const man=manSn.exists()?manSn.data():{champWinners:[],scorerWinners:[]};
+  const champSet=new Set(man.champWinners||[]);
+  const scorerSet=new Set(man.scorerWinners||[]);
+  // palpites de cada participante
+  const linhas=[];
+  for(const u of Object.values(USERS)){
+    const sp=await getDoc(doc(db,"specials",u.uid));
+    const d=sp.exists()?sp.data():{};
+    linhas.push({uid:u.uid,name:u.name,champ:d.champion||"—",scorer:d.scorer||"—"});
+  }
+  linhas.sort((a,b)=>a.name.localeCompare(b.name));
+  $("specials-list").innerHTML=`
+    <table class="rtable" style="width:100%">
+      <thead><tr>
+        <th>Participante</th>
+        <th>🏆 Campeão palpitado</th><th style="text-align:center">+30?</th>
+        <th>👟 Artilheiro palpitado</th><th style="text-align:center">+15?</th>
+      </tr></thead>
+      <tbody>
+        ${linhas.map(l=>`<tr>
+          <td>${l.name}</td>
+          <td>${l.champ}</td>
+          <td style="text-align:center"><input type="checkbox" id="ch_${l.uid}" ${champSet.has(l.uid)?"checked":""} style="width:18px;height:18px;cursor:pointer"></td>
+          <td>${l.scorer}</td>
+          <td style="text-align:center"><input type="checkbox" id="sc_${l.uid}" ${scorerSet.has(l.uid)?"checked":""} style="width:18px;height:18px;cursor:pointer"></td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+    <button class="btn btn-gold btn-sm" style="margin-top:14px" onclick="saveSpecialsManual()">Salvar e creditar pontos</button>`;
+};
+window.saveSpecialsManual=async()=>{
+  const champWinners=[],scorerWinners=[];
+  for(const u of Object.values(USERS)){
+    if($("ch_"+u.uid)?.checked)champWinners.push(u.uid);
+    if($("sc_"+u.uid)?.checked)scorerWinners.push(u.uid);
+  }
+  await setDoc(doc(db,"config","specials_manual"),{champWinners,scorerWinners});
+  $("specials-res-info").innerHTML=`<div style="color:var(--green)">Salvo. Recalculando pontos…</div>`;
+  await recalcAll();
+  $("specials-res-info").innerHTML=`<div style="color:var(--green)">✅ Pontos creditados: 🏆 ${champWinners.length} campeão(+30) · 👟 ${scorerWinners.length} artilheiro(+15)</div>`;
+  toast("Pontos especiais creditados! 🏆","ok");
+};
 function renderPremAdm(c){
   const pag=Object.values(USERS).filter(u=>u.paid).length,tot=pag*(c.taxa||0),rk=ranking();
   $("prem-adm").innerHTML=`<div style="font-size:.85rem;color:var(--muted);margin-bottom:10px">${pag} pagantes · Total: <b style="color:var(--gold)">R$ ${tot}</b></div>
